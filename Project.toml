@@ -1,0 +1,13 @@
+name = "cosmic"
+uuid = "a3ac4969-c0e8-4fca-9196-8113a875001f"
+authors = ["Kazi Abu Rousan"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
