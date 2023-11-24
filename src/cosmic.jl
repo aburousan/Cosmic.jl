@@ -1,5 +1,28 @@
 module cosmic
 
-# Write your package code here.
+include("test_f.jl")
 
-end
+export my_f
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+end#  module end
