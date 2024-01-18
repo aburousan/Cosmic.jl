@@ -1,19 +1,10 @@
 module cosmic
 
-include("test_f.jl")
+include("basic_cos.jl")
 
-export my_f
-
-
-
-
-
-
-
-
-
-
-
+export a, z, cosmology, Mpc_to_km, sec_to_year, H, my_f, my_g,
+        hubble_distance,
+        χ
 
 
 
