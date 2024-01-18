@@ -84,12 +84,8 @@ end
 
 # Final Cosmology Function
 # All predefined values are taken from Baumann's book table-2.1
-function cosmology(;h = 0.6774,Neff = 3.04,
-    Ωk = 0,
-    Ωm = 0.3089,
-    Ωr = nothing,
-    Tcmb = 2.7255,
-    w0 = -1,wa = 0)
+function cosmology(;h = 0.6774, Neff = 3.04, Ωk = 0, Ωm = 0.3089,
+    Ωr = nothing, Tcmb = 2.7255, w0 = -1,wa = 0)
     if Ωr === nothing
         Ωγ = 4.48131e-7 * Tcmb^4 / h^2
         Ων = Neff * Ωγ * (7 / 8) * (4 / 11)^(4 / 3)
@@ -117,28 +113,31 @@ sec_to_year(sec_ye) = 3.171e-8*sec_ye
 #--------------------------------------------------------------------------------
 # Scale Factor
 a(z) = 1/(1+z)#Sacle factor as a function of z
-z(a) = 1/a - 1# Inverse function
+redshift(a) = 1/a - 1# Inverse function
 #--------------------------------------------------------------------------------
 # Hubble Rate
-H_by_H0(c::AbstractCosmology, z) = (a = a(z); H_a2_by_H0(c, a) / a^2)
+H_by_H0(c::AbstractCosmology, z) = (scal = a(z); H_a2_by_H0(c, scal) / scal^2)
 H(c::AbstractCosmology, z) = 100 * c.h * H_by_H0(c, z)# in km /s / Mpc
 #--------------------------------------------------------------------------------
 # Distance
 χ0(c::AbstractCosmology) = 2997.92458 / c.h# in Mpc
 hubble_distance(c::AbstractCosmology, z) = χ0(c) / H_by_H0(c, z)# 1/H -> hubble radius
-χ(c::AbstractCosmology, z::Real, ::Nothing; kws...) = QuadGK.quadgk(a->1 / H_a2_by_H0(c, a), scale_factor(z), 1; kws...)[1]
-χ(c::AbstractCosmology, z₁::Real, z₂::Real; kws...) = QuadGK.quadgk(a->1 / H_a2_by_H0(c, a), scale_factor(z₂), scale_factor(z₁); kws...)[1]
+χ(c::AbstractCosmology, z::Real, ::Nothing; kws...) = QuadGK.quadgk(a->1 / H_a2_by_H0(c, a), a(z), 1; kws...)[1]
+χ(c::AbstractCosmology, z₁::Real, z₂::Real; kws...) = QuadGK.quadgk(a->1 / H_a2_by_H0(c, a), a(z₂), a(z₁); kws...)[1]
 # Times
-
-
+η0(c::AbstractCosmology) = 3.262*9.46*1e18 / (1e2*c.h)# sec
+hubble_time(c::AbstractCosmology, z) = η0(c) / H_by_H0(c, z)
+T(c::AbstractCosmology, a0, a1; kws...) = QuadGK.quadgk(x->x / H_a2_by_H0(c, x), a0, a1; kws...)[1]
+age(c::AbstractCosmology, z; kws...) = η0(c) * T(c, 0, a(z); kws...)
+lookback_time(c::AbstractCosmology, z; kws...) = η0(c) * T(c, a(z), 1; kws...)
 # Constants all are in MeV and C = 1, ħ = 1, kᵦ = 1
-H0 = (67.74/(3.26*9.5))*1e-18
-Ωm = 0.32
-ΩΛ = 0.68
-Ωγ = 5.35e-5
-Ων = 3.64e-5
-Ωr = Ωγ + Ων
-zeq = 3395
+# H0 = (67.74/(3.26*9.5))*1e-18
+# Ωm = 0.32
+# ΩΛ = 0.68
+# Ωγ = 5.35e-5
+# Ων = 3.64e-5
+# Ωr = Ωγ + Ων
+# zeq = 3395
 # All constants are from Baumann's book
 
 
