@@ -11,12 +11,13 @@ ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 
 [compat]
-julia = "1"
 DifferentialEquations = "7.12.0 , 7.11.0, 7.6.0, 6.17.0"
 ForwardDiff = "0.10.36"
+QuadGK = "2.9.4 , 2.9.3 , 2.9.2"
 ReverseDiff = "1.15.1"
 Roots = "2.0.22"
-QuadGK = "2.9.4 , 2.9.3 , 2.9.2"
+julia = "1"
+
 [extras]
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
