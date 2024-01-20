@@ -1,13 +1,11 @@
-using QuadGK
-
-
-
-
+using QuadGK, Roots
+using DifferentialEquations
+#-----------------------------------------------------------------------------------
+# Abstract types for better calculation
 abstract type AbstractCosmology end
 abstract type AbstractClosedCosmology <: AbstractCosmology end
 abstract type AbstractFlatCosmology <: AbstractCosmology end
 abstract type AbstractOpenCosmology <: AbstractCosmology end
-
 
 # For flat ΛCDM
 struct FlatLCDM{T <: Real} <: AbstractFlatCosmology
@@ -129,26 +127,63 @@ hubble_distance(c::AbstractCosmology, z) = χ0(c) / H_by_H0(c, z)# 1/H -> hubble
 hubble_time(c::AbstractCosmology, z) = η0(c) / H_by_H0(c, z)
 T(c::AbstractCosmology, a0, a1; kws...) = QuadGK.quadgk(x->x / H_a2_by_H0(c, x), a0, a1; kws...)[1]
 age(c::AbstractCosmology, z; kws...) = η0(c) * T(c, 0, a(z); kws...)
-lookback_time(c::AbstractCosmology, z; kws...) = η0(c) * T(c, a(z), 1; kws...)
-# Constants all are in MeV and C = 1, ħ = 1, kᵦ = 1
-# H0 = (67.74/(3.26*9.5))*1e-18
-# Ωm = 0.32
-# ΩΛ = 0.68
-# Ωγ = 5.35e-5
-# Ων = 3.64e-5
-# Ωr = Ωγ + Ων
-# zeq = 3395
-# All constants are from Baumann's book
+ageGyr(c::AbstractCosmology,z;kws...) = sec_to_year(age(c,z))*1e-9
+look_back_time(c::AbstractCosmology, z; kws...) = η0(c) * T(c, a(z), 1; kws...)
 
-
-
-function inte_for_age(a)
-    deno = √(Ωr/a^2 + Ωm/a + ΩΛ*a^2)
-    return 1/deno
+function da_dt(p::AbstractCosmology,u)#Note t in Gyr
+    H0 = 219495e-27# per gigayear
+    fact = H_a2_by_H0(p,u)/u
+    return H0*fact
 end
 
+scalefact(c::AbstractCosmology,z1) = find_zero(age(c,z) - z1, (1100,1300))
+function scale_fact(c::AbstractCosmology,t,series = false)
+    H0 = ((c.h*100/(3.26*9.5)))*(3600*24*365e-9)#219495e-27# per gigayear
+    dadt(u,p,t) = H0*H_a2_by_H0(c,u)/u
+    tspan = (0, t)
+    u0 = 1e-8
+    prob = ODEProblem(dadt,u0, tspan)
+    sol = solve(prob,Vern7())
+    if series
+        return sol
+    else
+        return sol(t)
+    end
+end
 
-age(a) = QuadGK.quadgk(inte_for_age, 0, a)[1]/H0 # In sec
+function scalefact_part(c::AbstractFlatCosmology,t)
+    # t = time/1e9
+    H0 = ((c.h*100/(3.26*9.5)))*(3600*24*365e-9)
+    if t <= 2e5/1e9
+        return sqrt(2*H0*t)*(c.Ω_r)^(1/4)
+    elseif t > 2e5/1e9 && t <= 1.5e9/1e9
+        return (3/2)^(2/3)*(H0*t)^(2/3)*(c.Ω_m)^(1/3)
+    else
+        return (1/c.Ω_Λ - 1)^(1/3)*(sinh(3*H0*t√(c.Ω_Λ)/2))^(2/3)
+    end
+
+end
+# 2 + 3im
+
+# tspan = (1e10, 1e0)
+# prob = ODEProblem(da_dt, u0, tspan)
+# sol = solve(prob, Rodas5(), reltol=1e-12, abstol=1e-12)# Tsit5(), reltol = 1e-8, abstol = 1e-8)
+# t_bol = sort(sol.t)#solution Z values
+# a_bol = sort(sol.u)#solution Xe values
+
+# # find_zero(pebb_05, (1100,1300))
+# # find_zero(f,  0.6)
+# # Constants all are in MeV and C = 1, ħ = 1, kᵦ = 1
+# H0 = (67.74/(3.26*9.5))*1e-18
+# 67.74/(3.262e6 * 9.461e12)
+# # Ωm = 0.32
+# # ΩΛ = 0.68
+# # Ωγ = 5.35e-5
+# # Ων = 3.64e-5
+# # Ωr = Ωγ + Ων
+# # zeq = 3395
+# # All constants are from Baumann's book
+# sec_to_year((67.74/(3.26*9.5))*1e-18)
 my_f(x,y) = 2x+7y
 
 my_g(x) = x^2
