@@ -1,16 +1,16 @@
-using cosmic
+using Cosmic
 using Documenter
 
-DocMeta.setdocmeta!(cosmic, :DocTestSetup, :(using cosmic); recursive=true)
+DocMeta.setdocmeta!(Cosmic, :DocTestSetup, :(using Cosmic); recursive=true)
 
 makedocs(;
     modules=[cosmic],
     authors="Kazi Abu Rousan",
-    repo="https://github.com/aburousan/cosmic.jl/blob/{commit}{path}#{line}",
-    sitename="cosmic.jl",
+    repo="https://github.com/aburousan/Cosmic.jl/blob/{commit}{path}#{line}",
+    sitename="Cosmic.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://aburousan.github.io/cosmic.jl",
+        canonical="https://aburousan.github.io/Cosmic.jl",
         edit_link="main",
         assets=String[],
     ),
@@ -20,6 +20,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/aburousan/cosmic.jl",
+    repo="github.com/aburousan/Cosmic.jl",
     devbranch="main",
 )

@@ -159,7 +159,7 @@ function scalefact_part(c::AbstractFlatCosmology,t)
     elseif t > 2e5/1e9 && t <= 1.5e9/1e9
         return (3/2)^(2/3)*(H0*t)^(2/3)*(c.Ω_m)^(1/3)
     else
-        return (1/c.Ω_Λ - 1)^(1/3)*(sinh(3*H0*t√(c.Ω_Λ)/2))^(2/3)
+        return cbrt(1/c.Ω_Λ - 1)*(sinh(3/2*H0*t*sqrt(c.Ω_Λ)))^(2/3)
     end
 
 end

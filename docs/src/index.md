@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule = cosmic
+CurrentModule = Cosmic
 ```
 
 # cosmic
