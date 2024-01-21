@@ -13,7 +13,7 @@
 
 ## Installation
 
-Bolt requires Julia 1.9+. To install, from the package prompt, run:
+Cosmic requires Julia 1.9+. To install, from the package prompt, run:
 
 ```
 pkg> add https://github.com/aburousan/Cosmic.jl
