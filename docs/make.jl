@@ -4,7 +4,7 @@ using Documenter
 DocMeta.setdocmeta!(Cosmic, :DocTestSetup, :(using Cosmic); recursive=true)
 
 makedocs(;
-    modules=[cosmic],
+    modules=[Cosmic],
     authors="Kazi Abu Rousan",
     repo="https://github.com/aburousan/Cosmic.jl/blob/{commit}{path}#{line}",
     sitename="Cosmic.jl",
