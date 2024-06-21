@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.36
+# v0.19.41
 
 using Markdown
 using InteractiveUtils
@@ -50,6 +50,14 @@ H(c,100)#takes your cosmology model and z
 
 # ╔═╡ 3aa50f1f-04e8-4d0d-a650-c0ef8e75089f
 md"Let's try plotting $\frac{H(z)}{(1+z)}$ vs $z$."
+
+# ╔═╡ 5156f459-79e4-467e-b894-9e7cb89d58e7
+# ╠═╡ disabled = true
+#=╠═╡
+begin
+	Pkg.add("LaTeXStrings")
+end
+  ╠═╡ =#
 
 # ╔═╡ 2ee6b0bf-3511-4fea-8132-9896f5f112ec
 begin
@@ -132,6 +140,7 @@ plot!([13.807434539,13.807434539],[0,2.5],lc=:green,lw=2.5,label="t = 13.80743",
 # ╟─5d11e724-326a-436f-94f4-211f99d30990
 # ╠═7e4c3515-02f7-498b-829f-23e78997fb70
 # ╟─3aa50f1f-04e8-4d0d-a650-c0ef8e75089f
+# ╠═5156f459-79e4-467e-b894-9e7cb89d58e7
 # ╠═1473e933-d04a-4a0b-90d8-ab33df9ff3ee
 # ╠═2ee6b0bf-3511-4fea-8132-9896f5f112ec
 # ╟─4984ac71-b8eb-4085-a20a-9a2ac5f439a4
