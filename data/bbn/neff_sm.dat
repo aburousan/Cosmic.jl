@@ -1,0 +1,4 @@
+# Standard-Model N_eff, computed by Cosmic.neff().
+# QED plasma pressure (closed form) + neutrino decoupling with
+# FeynCalc-derived collision integrals. Delete to recompute.
+3.042809

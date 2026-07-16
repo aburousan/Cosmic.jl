@@ -16,6 +16,20 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Background & species" => "background.md",
+        "Neutrinos" => "neutrinos.md",
+        "Thermal history" => "thermal_history.md",
+        "BBN" => "bbn.md",
+        "Perturbations" => Any[
+            "Overview" => "perturbations.md",
+            "Equations & derivations" => "perturbation_equations.md",
+        ],
+        "CMB, lensing & tensors" => "cmb.md",
+        "Matter power spectrum" => "matter_power.md",
+        "Primordial & inflation" => "primordial.md",
+        "Induced gravitational waves" => "sigw.md",
+        "Spectral distortions" => "spectral_distortions.md",
+        "API index" => "api.md",
     ],
 )
 

@@ -1,0 +1,8 @@
+# Effective-rate and SWIFT-correction tables from HyRec-2020
+# (Y. Ali-Haimoud & C. Hirata; SWIFT mode: N. Lee & Y. Ali-Haimoud, arXiv:2007.14114).
+# Copied unmodified from the HyRec2020 distribution bundled with CLASS 3.3.4.
+# Alpha_inf.dat: effective recombination coefficients to 2s/2p, alpha(T_M, T_R),
+#   100 T_R blocks (log-uniform, 0.004-0.4 eV) x 40 T_M/T_R rows (uniform, 0.1-1) x 4 cols.
+# R_inf.dat: effective 2p->2s transfer rate, one value per T_R.
+# fit_swift.dat: radiative-transfer correction DK/K: T_R[K] grid (1775..4415, step 10),
+#   fiducial, and derivatives wrt (omega_cb, omega_b(1-YHe), N_eff).
