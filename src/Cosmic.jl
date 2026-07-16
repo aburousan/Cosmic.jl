@@ -38,6 +38,8 @@ include("gauges.jl")
 include("observables.jl")
 include("inflation.jl")
 include("sigw.jl")
+include("pbh.jl")
+include("second_order.jl")
 include("cmb.jl")
 include("lensing.jl")
 include("nonlinear.jl")
@@ -98,6 +100,7 @@ export EFTSpectrum, eft_power, p22, p13
 export CMBSpectra, cmb_spectra, D_ℓ, SourceFunction, source_function, PrimordialMatrix
 export InflatonSpectrum, inflaton_spectrum, inflation_background, tensor_power
 export SIGWSpectrum, sigw_spectrum, Ω_gw_rd, sigw_monochromatic, sigw_ΔNeff
+export PBHAbundance, pbh_abundance, pbh_β, pbh_moments
 export LensedCMBSpectra, lensed_cmb_spectra, lensed_from_cls
 export TensorPerturbationSolution, solve_tensor_perturbations, tensor_h, tensor_hdot
 export TensorSourceFunction, TensorCMBSpectra, tensor_cmb_spectra

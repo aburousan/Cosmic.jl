@@ -9,6 +9,11 @@ using QuadGK: quadgk
 #
 # Nothing here touches the network or plots.
 
+# The full suite includes multi-minute physics closures (CMB spectra, lensing,
+# thermalization). Set COSMIC_TEST_FULL=false (as CI does) to run only the fast
+# structural and unit-physics tests; the full suite remains the default locally.
+const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
+
 @testset "Cosmic.jl" begin
 
     @testset "species" begin
@@ -209,7 +214,127 @@ using QuadGK: quadgk
         @test δ_cdm(p2, 1e-5) ≈ 0.75 * δ_photon(p2, 1e-5) rtol = 1e-2   # adiabaticity
     end
 
-    @testset "exact curved geometry" begin
+    @testset "second-order angular foundation" begin
+        t = Cosmic.SecondOrderTriangle(0.1, 0.2, 0.25)
+        @test t.k1 * t.sin1 ≈ t.k2 * t.sin2 rtol = 2e-15
+        @test Cosmic._k_spherical(t, 1, 0) + Cosmic._k_spherical(t, 2, 0) ≈ t.k
+        @test Cosmic._k_spherical(t, 1, -1) + Cosmic._k_spherical(t, 2, -1) ≈ 0 atol = 1e-16
+        @test Cosmic._k_spherical(t, 1, 1) + Cosmic._k_spherical(t, 2, 1) ≈ 0 atol = 1e-16
+        @test_throws DomainError Cosmic.SecondOrderTriangle(1.0, 1.0, 2.1)
+
+        # Scalar rotations and their negative-m reality relation.
+        @test Cosmic._rotate_scalar(t, 1, 1, 0) ≈ t.cos1 rtol = 2e-15
+        @test Cosmic._rotate_scalar(t, 1, 1, 1) ≈ -t.sin1 / sqrt(2) rtol = 2e-15
+        @test Cosmic._rotate_scalar(t, 1, 1, -1) ≈ t.sin1 / sqrt(2) rtol = 2e-15
+        @test Cosmic._rotate_scalar(t, 2, 1, 1) ≈ t.sin2 / sqrt(2) rtol = 2e-15
+
+        # Coupling identities from the primary harmonic derivation.
+        for l in 2:8, m in -l:l, m1 in (m-1):(m+1)
+            @test Cosmic._Rplus(l, m1, m) ≈ -(l + 2) * Cosmic._Cplus(l, m1, m)
+            @test Cosmic._Rminus(l, m1, m) ≈ (l - 1) * Cosmic._Cminus(l, m1, m)
+            @test Cosmic._Kplus(l, m1, m) ≈ -(l + 2) * Cosmic._Dplus(l, m1, m)
+            @test Cosmic._Kminus(l, m1, m) ≈ (l - 1) * Cosmic._Dminus(l, m1, m)
+            @test Cosmic._Kzero(l, m1, m) ≈ -Cosmic._Dzero(l, m1, m)
+        end
+        @test Cosmic._Dzero(7, 0, 0) == 0
+
+        # Known Wigner values, permutation symmetry and the monopole LOS identity.
+        for j in 0:8
+            @test Cosmic._wigner3j(j, j, 0, 0, 0, 0) ≈ (-1)^j / sqrt(2j + 1) rtol = 2e-14
+        end
+        @test Cosmic._wigner3j(2, 3, 4, 1, -2, 1) ≈
+              (-1)^(2 + 3 + 4) * Cosmic._wigner3j(3, 2, 4, -2, 1, 1) rtol = 2e-14
+        @test Cosmic._wigner3j(2, 2, 2, 2, 2, -4) == 0
+        for Ls in 0:8
+            @test Cosmic._J_T(Ls, 0, 0, 1.2) ≈
+                  (-1)^Ls * Cosmic.sphericalbesselj(Ls, 1.2) rtol = 3e-14
+        end
+
+        # Complete +/-m layout and collision invariants of the pure operator.
+        L = Cosmic.SecondOrderLayout(4, 4, 4)
+        @test length(L.I) == 25
+        @test length(L.E) == 21 == length(L.B)
+        @test length(L.N) == 25
+        y = randn(L.n)
+        dy = similar(y)
+        Cosmic._second_order_radiation_linear!(dy, y, L, 0.0, 3.0)
+        @test dy[L.I[(0, 0)]] == 0                 # Thomson conserves intensity monopole
+        @test all(isfinite, dy)
+        fill!(y, 0)
+        y[L.E[(3, 1)]] = 1
+        Cosmic._second_order_radiation_linear!(dy, y, L, 0.0, 3.0)
+        @test dy[L.E[(3, 1)]] == -3
+
+        # The exact STF geometry reconstructs the total k-aligned tensor.
+        tg = Cosmic.SecondOrderTriangle(0.17, 0.11, 0.21)
+        for m in (-2, -1, 1, 2)
+            tsum = Cosmic._tensor_product(tg, 1, 1, m) +
+                   2Cosmic._tensor_product(tg, 1, 2, m) +
+                   Cosmic._tensor_product(tg, 2, 2, m)
+            @test tsum ≈ 0 atol = 2e-17
+        end
+        @test Cosmic._tensor_product(tg, 1, 1, 0) +
+              2Cosmic._tensor_product(tg, 1, 2, 0) +
+              Cosmic._tensor_product(tg, 2, 2, 0) ≈ 2tg.k^2/3
+
+        # The Einstein kernels must obey the exchange parity
+        # Q_m(k2,k1)=(-1)^m Q_m(k1,k2).
+        q1 = Cosmic.FirstOrderMetricSnapshot(0.13, 0.11, -0.007, -0.006, 0.001)
+        q2 = Cosmic.FirstOrderMetricSnapshot(-0.08, -0.06, 0.004, 0.003, -0.0007)
+        qs = Cosmic._einstein_quadratic_sources(tg, q1, q2, 0.09, -0.003;
+            a=0.2, rho_dipole1=0.04, rho_dipole2=-0.03)
+        ts = Cosmic.SecondOrderTriangle(tg.k2, tg.k1, tg.k)
+        qx = Cosmic._einstein_quadratic_sources(ts, q2, q1, 0.09, -0.003;
+            a=0.2, rho_dipole1=-0.03, rho_dipole2=0.04)
+        @test qs.QTT ≈ qx.QTT
+        @test qs.QST ≈ qx.QST
+        @test qs.QTR ≈ qx.QTR
+        for m in -2:2
+            @test qs.QSS[m] ≈ (-1)^m * qx.QSS[m]
+            @test qs.QSS_prime[m] ≈ (-1)^m * qx.QSS_prime[m]
+        end
+
+        # Full quadratic Liouville block: a vanishing metric gives exactly no
+        # source, and swapping the two convolution legs gives (-1)^m.
+        q0 = Cosmic.FirstOrderMetricSnapshot(0.0, 0.0, 0.0, 0.0, 0.0)
+        rr = Cosmic.FirstOrderRadiationSnapshot(randn(7), randn(7), randn(7))
+        zsrc = Cosmic._quadratic_radiation_liouville(tg, q0, q0, rr, rr, L)
+        @test all(iszero, values(zsrc.I))
+        @test all(iszero, values(zsrc.E))
+        @test all(iszero, values(zsrc.B))
+        @test all(iszero, values(zsrc.N))
+        r1 = Cosmic.FirstOrderRadiationSnapshot(randn(7), randn(7), randn(7))
+        r2 = Cosmic.FirstOrderRadiationSnapshot(randn(7), randn(7), randn(7))
+        ls = Cosmic._quadratic_radiation_liouville(tg, q1, q2, r1, r2, L)
+        lx = Cosmic._quadratic_radiation_liouville(ts, q2, q1, r2, r1, L)
+        for species in (:I, :E, :B, :N), lm in keys(ls[species])
+            @test ls[species][lm] ≈ (-1)^lm[2] * lx[species][lm] atol = 2e-15
+        end
+
+
+        b1 = Cosmic.FirstOrderBaryonSnapshot(0.2, 0.25, -0.03, -0.025)
+        b2 = Cosmic.FirstOrderBaryonSnapshot(-0.1, -0.08, 0.02, 0.018)
+        tc = Cosmic._quadratic_thomson(tg, q1, q2, r1, r2, b1, b2, L;
+            rho_gamma_over_rho_b=0.7)
+        tx = Cosmic._quadratic_thomson(ts, q2, q1, r2, r1, b2, b1, L;
+            rho_gamma_over_rho_b=0.7)
+        for species in (:I, :E, :B), lm in keys(tc[species])
+            @test tc[species][lm] ≈ (-1)^lm[2] * tx[species][lm] atol = 2e-15
+        end
+        @test tc.baryon_monopole == -0.7tc.I[(0, 0)]
+        @test all(tc.baryon_dipole[m] == -0.7tc.I[(1, m)] for m in -1:1)
+
+        d1 = Cosmic.FirstOrderMatterSnapshot(0.2, -0.03)
+        d2 = Cosmic.FirstOrderMatterSnapshot(-0.1, 0.02)
+        ml = Cosmic._quadratic_matter_liouville(tg, q1, q2, d1, d2)
+        mx = Cosmic._quadratic_matter_liouville(ts, q2, q1, d2, d1)
+        @test ml.monopole ≈ mx.monopole
+        @test ml.pressure ≈ mx.pressure
+        @test all(ml.dipole[m] ≈ (-1)^m * mx.dipole[m] for m in -1:1)
+        @test all(ml.quadrupole[m] ≈ (-1)^m * mx.quadrupole[m] for m in -2:2)
+    end
+
+    FULL_TESTS && @testset "exact curved geometry" begin
         # CLASS's HypersphericalExplicit evaluator (not its high-nu flat
         # approximation), beta=40, ell=5, chi=0.2.  These pin both the open and
         # closed radial eigenfunctions to an independent implementation.
@@ -241,7 +366,7 @@ using QuadGK: quadgk
         @test tB == zeros(2)
     end
 
-    @testset "observables" begin
+    FULL_TESTS && @testset "observables" begin
         c = cosmology(m_ν=Float64[])
         r = recombination(c)
         P = matter_power_spectrum(c, r; nk=48, kmin=1e-4, kmax=5.0)
@@ -279,7 +404,7 @@ using QuadGK: quadgk
         # reachable, and asserting it would be asserting a fiction.
     end
 
-    @testset "Poisson equation" begin
+    FULL_TESTS && @testset "Poisson equation" begin
         # Deep inside the horizon the metric and matter must satisfy
         #     k²Φ = -(3/2) H₀² Ω_m δ_m / a
         # This ties the Einstein sector to the matter sector and is the sharpest
@@ -322,7 +447,7 @@ using QuadGK: quadgk
         @test r_drag(r) ≈ r_drag(rn) rtol = 1e-3
     end
 
-    @testset "CMB spectra" begin
+    FULL_TESTS && @testset "CMB spectra" begin
         # Validated against CAMB 1.6.0 run with this same cosmology. These are
         # not round numbers from a table -- they are what CAMB produces.
         c = cosmology(m_ν=Float64[])
@@ -367,7 +492,7 @@ using QuadGK: quadgk
         @test D_bad < D_ok
     end
 
-    @testset "CMB lensing" begin
+    FULL_TESTS && @testset "CMB lensing" begin
         # The Wigner d-recurrence against closed forms, and orthogonality at a
         # multipole high enough to expose recursion instability if any existed.
         μ = 0.3
@@ -492,6 +617,28 @@ using QuadGK: quadgk
         @test s5.n_s ≈ s.n_s atol = 0.002
         # superluminal c_s violates causality and must be refused
         @test_throws ErrorException inflaton_spectrum(V, dV; φ0=16.0, cs=N -> 1.17)
+    end
+
+    @testset "PBH abundance (Young–Musco–Byrnes)" begin
+        # monochromatic moments have closed forms: σ² = (16/81)A[W̃(1)T(1)]²
+        # for P = Aδ(ln k/k*) at r_m = 1/k*, and μ²/σ² = k*²
+        Pm(k) = exp(-log(k)^2 / (2 * 0.01^2)) / (sqrt(2π) * 0.01)
+        σ2, μ2 = Cosmic.pbh_moments(Pm, 1.0)
+        W1 = 3 * (sin(1) - cos(1))
+        y = 1 / sqrt(3)
+        T1 = 3 * (sin(y) - y * cos(y)) / y^3
+        @test σ2 ≈ (16 / 81) * (W1 * T1)^2 rtol = 2e-3
+        @test μ2 / σ2 ≈ 1 rtol = 2e-3
+        # the critical linear amplitude (eq. 23) bounds: no PBHs from tiny power
+        @test Cosmic.pbh_β(k -> 1e-9, 1.0) == 0.0
+        # exponential sensitivity to the amplitude — the defining feature
+        P1(k) = 0.02 * exp(-log(k)^2 / (2 * 0.3^2)) / (sqrt(2π) * 0.3)
+        β1 = Cosmic.pbh_β(P1, 1.0)
+        β2 = Cosmic.pbh_β(k -> 1.2 * P1(k), 1.0)
+        @test β1 > 0
+        @test β2 / β1 > 5
+        # δc beyond the type-I maximum must refuse
+        @test_throws ArgumentError Cosmic.pbh_β(P1, 1.0; δc=0.7)
     end
 
     @testset "scalar-induced GW (Kohri–Terada)" begin
@@ -633,7 +780,7 @@ using QuadGK: quadgk
         @test all(isfinite, pX.sol(0.0))
     end
 
-    @testset "tensor spectra" begin
+    FULL_TESTS && @testset "tensor spectra" begin
         # The flat projector (Bessel table) and the curved projector
         # (hyperspherical recurrences) are independent code paths that must
         # agree in the K -> 0 limit. This catches regressions in either
@@ -681,7 +828,7 @@ using QuadGK: quadgk
         @test all(D_ℓ(t, :TE) .< 0)
     end
 
-    @testset "massive neutrinos" begin
+    FULL_TESTS && @testset "massive neutrinos" begin
         # The momentum-resolved hierarchy. Slow (nq bins multiply the state), so
         # only a couple of modes are solved here.
         c = cosmology(m_ν=[0.06, 0.0, 0.0])
@@ -761,7 +908,7 @@ using QuadGK: quadgk
               δ_species(p2, 1.0, :matter, Synchronous) rtol = 1e-6
     end
 
-    @testset "spectral distortions" begin
+    FULL_TESTS && @testset "spectral distortions" begin
         # Exact Green's-function / PCA method (Chluba & Jeong 2014), validated
         # against a live CLASS 3.3.4 run (sd_branching_approx = exact, FIRAS,
         # this exact cosmology): μ = 2.09209e-8, y = 3.37597e-9. CLASS divides
@@ -800,7 +947,7 @@ using QuadGK: quadgk
         @test distortion_spectrum(c, r, 400.0) > 0
     end
 
-    @testset "thermalization (derived μ, y)" begin
+    FULL_TESTS && @testset "thermalization (derived μ, y)" begin
         # Solve the photon Boltzmann equation from scratch -- exact Klein-Nishina
         # x Maxwell-Juttner Compton + double Compton + bremsstrahlung -- and read
         # μ and y off the evolved spectrum.
@@ -906,7 +1053,7 @@ using QuadGK: quadgk
             nuclear_history=nh) == nuclear_heating_rate(c, r, 3e4; history=nh)
     end
 
-    @testset "growth" begin
+    FULL_TESTS && @testset "growth" begin
         c = cosmology(m_ν=Float64[])
         r = recombination(c)
 

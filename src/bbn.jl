@@ -907,6 +907,55 @@ This is what `cosmology()` calls when `Y_He` is not given.
 const _STANDARD_BBN_CACHE = Dict{NTuple{8,Float64},BBNSolution}()
 const _STANDARD_BBN_CACHE_LOCK = ReentrantLock()
 
+# Shipped solutions for the standard parameter points (the `cosmology()`
+# defaults and close variants), so a fresh session does not pay the full
+# network solve just to build the default model. These are exact stored
+# solutions of THIS network at exactly those parameters — no interpolation:
+# any parameter combination not in the store is solved from scratch.
+const _BBN_STORE_FILE = joinpath(@__DIR__, "..", "data", "bbn", "standard_solutions.dat")
+
+function _load_bbn_store()
+    isfile(_BBN_STORE_FILE) || return Vector{Tuple{NTuple{8,Float64},BBNSolution}}()
+    out = Vector{Tuple{NTuple{8,Float64},BBNSolution}}()
+    nY = length(NUCLIDES)
+    for line in eachline(_BBN_STORE_FILE)
+        (startswith(line, "#") || isempty(strip(line))) && continue
+        v = parse.(Float64, split(line))
+        length(v) == 8 + nY + 5 || continue
+        key = NTuple{8,Float64}(v[1:8])
+        Y = v[9:8+nY]
+        Y_p, Y_pn, DH, He3H, Li7H = v[(8+nY+1):end]
+        push!(out, (key, BBNSolution(key[1], key[3], Y, Y_p, Y_pn, DH, He3H, Li7H)))
+    end
+    out
+end
+
+# Loaded lazily at first use: a `const = _load_bbn_store()` would run at
+# precompile time and freeze whatever the file contained THEN (including
+# nothing at all) into the compiled image.
+const _BBN_STORE = Ref{Union{Nothing,Vector{Tuple{NTuple{8,Float64},BBNSolution}}}}(nothing)
+
+function _get_bbn_store()
+    if _BBN_STORE[] === nothing
+        _BBN_STORE[] = _load_bbn_store()
+    end
+    _BBN_STORE[]
+end
+
+function _stored_standard_bbn(key)
+    for (k, sol) in _get_bbn_store()
+        ok = true
+        for i in 1:8
+            if abs(k[i] - key[i]) > 1e-10 * max(abs(key[i]), 1e-30)
+                ok = false
+                break
+            end
+        end
+        ok && return sol
+    end
+    nothing
+end
+
 _copy_bbn(b::BBNSolution) = BBNSolution(
     b.ω_b, b.N_eff, copy(b.Y), b.Y_p, b.Y_p_nucleon, b.DH, b.He3H, b.Li7H,
 )
@@ -917,6 +966,10 @@ function _cached_standard_bbn(ω_b, ω_m, N_eff, τ_n;
         Float64(ω_k), Float64(ω_de), Float64(w0), Float64(wa))
     stored = lock(_STANDARD_BBN_CACHE_LOCK) do
         get!(_STANDARD_BBN_CACHE, key) do
+            # standard parameter points ship with their exact solved network
+            # result, so a fresh session never pays the full solve for them
+            shipped = _stored_standard_bbn(key)
+            shipped !== nothing && return shipped
             ħc_MeVcm = 197.3269804e-13
             MeV4_to_gcm3 = 1.602176634e-6 / ħc_MeVcm^3 / (2.99792458e10)^2
             function composition_extra(Tγ)
