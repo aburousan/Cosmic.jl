@@ -5,6 +5,9 @@ DocMeta.setdocmeta!(Cosmic, :DocTestSetup, :(using Cosmic); recursive=true)
 
 makedocs(;
     modules=[Cosmic],
+    # docstring coverage and cross-reference completeness are tracked but not
+    # build-fatal while the API surface is still growing
+    warnonly=[:missing_docs, :cross_references],
     authors="Kazi Abu Rousan",
     repo="https://github.com/aburousan/Cosmic.jl/blob/{commit}{path}#{line}",
     sitename="Cosmic.jl",

@@ -238,6 +238,41 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         end
         @test Cosmic._Dzero(7, 0, 0) == 0
 
+        # The second-order kernels reuse the existing scalar G_l hierarchy.
+        # Tram--Lesgourgues eq. (2.40b) gives E_l algebraically; in particular
+        # the quadrupole must reproduce Cosmic's established Thomson source.
+        Gpol = [0.31, -0.07, 0.11, 0.03, -0.05, 0.02, 0.01]
+        Epol = Cosmic._scalar_E_from_G(Gpol)
+        @test Epol[1] == 0 == Epol[2]
+        @test Epol[3] ≈ -5 / sqrt(6) * (Gpol[1] + Gpol[3]) rtol = 2e-15
+        I2 = 5 * 0.17
+        @test (I2 - sqrt(6) * Epol[3]) / 10 ≈
+              (0.17 + Gpol[1] + Gpol[3]) / 2 rtol = 2e-15
+        legendre(l, x) = l == 0 ? one(x) : l == 1 ? x : begin
+            pm, p = one(x), x
+            for n in 2:l
+                pm, p = p, ((2n-1)*x*p-(n-1)*pm)/n
+            end
+            p
+        end
+        assoc2(l, x) = l < 2 ? zero(x) : l == 2 ? 3*(1-x^2) : begin
+            pm, p = 3*(1-x^2), 15x*(1-x^2)
+            for n in 4:l
+                pm, p = p, ((2n-1)*x*p-(n+1)*pm)/(n-2)
+            end
+            p
+        end
+        angular_G(x) = sum((-1im)^j * (2j+1) * Gpol[j+1] * legendre(j,x)
+                           for j in 0:(length(Gpol)-1))
+        for l in 2:6
+            direct = (1.0im)^l * (2l+1) /
+                (2sqrt((l-1)*l*(l+1)*(l+2))) *
+                Cosmic.quadgk(x -> angular_G(x)*assoc2(l,x), -1.0, 1.0;
+                              rtol=2e-13)[1]
+            @test imag(direct) ≈ 0 atol = 2e-14
+            @test real(direct) ≈ Epol[l+1] rtol = 3e-13 atol = 2e-14
+        end
+
         # Known Wigner values, permutation symmetry and the monopole LOS identity.
         for j in 0:8
             @test Cosmic._wigner3j(j, j, 0, 0, 0, 0) ≈ (-1)^j / sqrt(2j + 1) rtol = 2e-14
@@ -1137,7 +1172,10 @@ end
     end
 
     b = bbn(ω_b=0.02242, N_eff=3.044)
-    @test sum(Cosmic.NUC_A .* b.Y) ≈ 1.0 rtol = 1e-9      # baryon number
+    # baryon number: conserved by construction, so this measures stiff-solver
+    # drift, which is hardware dependent (2.7e-8 observed on GitHub runners
+    # where 1e-10 is typical locally)
+    @test sum(Cosmic.NUC_A .* b.Y) ≈ 1.0 rtol = 1e-7
     # References must match the rate compilation they test. The default chain is
     # PRIMAT throughout, so the references are PRIMAT's: CLASS's sBBN_2025_primat.dat
     # for Y_p (0.245683 at ω_b = 0.02242, τ_n = 878.4) and PRyMordial run on these
