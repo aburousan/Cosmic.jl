@@ -509,29 +509,49 @@ end
 
 """
     sigw_spectrum_ng(Pζ, c::Cosmology; kmin, kmax, nk = 40, f_NL = 0, g_NL = 0,
-                     rtol = 1e-4, g_factor = k -> 1.0)
+                     connected = false, f4 = false, gnl_loops = false,
+                     N = 16_000_000, rtol = 1e-3, g_factor = k -> 1.0)
 
-Today's induced-GW spectrum Ω_GW,0(k)h² including the leading primordial-NG
-corrections: the Gaussian piece, the disconnected f_NL² ("hybrid") term, and the
-linear-g_NL rescaling. `kmin`/`kmax` are the curvature-spectrum support: they
-bound the output wavenumbers, the kernel integrals, and the variance integral
-behind the g_NL term. Connected f_NL² and higher orders are not yet included
-(see the module note); with `f_NL = g_NL = 0` this returns exactly the Gaussian
-[`sigw_spectrum`](@ref).
+Today's induced-GW spectrum Ω_GW,0(k)h² including the primordial-NG corrections.
+The default sums the Gaussian piece, the disconnected f_NL² ("hybrid") term, and
+the linear-g_NL rescaling. The flags add the further validated contributions:
+
+  * `connected` — the connected f_NL² diagrams [`sigw_Z_connected`](@ref) +
+    [`sigw_C_connected`](@ref) (Monte Carlo with `N` samples each per k),
+    completing the full f_NL² correction;
+  * `f4` — the disconnected f_NL⁴ [`sigw_f4_reducible`](@ref);
+  * `gnl_loops` — the full loop g_NL tower [`sigw_gnl_reducible`](@ref)
+    (12GA+54G²A²+108G³A³) in place of the linear rescaling.
+
+`kmin`/`kmax` are the curvature-spectrum support. Still not included: the
+connected higher-order diagrams (f_NL⁴ planar/non-planar, g_NL² tri/ring,
+g_NL³ ring3 — see the module note). With `f_NL = g_NL = 0` this returns exactly
+the Gaussian [`sigw_spectrum`](@ref).
 """
 function sigw_spectrum_ng(Pζ, c::Cosmology; kmin, kmax, nk=40, f_NL=0.0, g_NL=0.0,
-    rtol=1e-3, g_factor=k -> 1.0)
+    connected=false, f4=false, gnl_loops=false, N=16_000_000, rtol=1e-3,
+    g_factor=k -> 1.0)
     Ωr = Ω_r(c) * c.h^2
     ksupp = _sigw_support(Pζ, kmin, kmax)   # trim to where 𝒫_ζ actually lives
-    gfac = g_NL == 0 ? 0.0 : sigw_gnl_factor(Pζ; kmin, kmax, g_NL, rtol=1e-6)
-    conv = f_NL == 0 ? nothing : _sigw_conv_table(Pζ, ksupp[1], ksupp[2]; ksupp, rtol)
+    gfac = g_NL == 0 ? 0.0 :
+           gnl_loops ? sigw_gnl_reducible(Pζ; kmin, kmax, g_NL) :
+           sigw_gnl_factor(Pζ; kmin, kmax, g_NL)
+    conv = (f_NL == 0 && !f4) ? nothing :
+           _sigw_conv_table(Pζ, ksupp[1], ksupp[2]; ksupp, rtol)
     ks = exp.(range(log(kmin), log(kmax); length=nk))
     Ω = map(ks) do k
         # Gaussian piece via the fast validated (t,s) integrator; the (u,v) kernel
         # form gives the identical number but is kept only as the cross-check.
         Ωg = Ω_gw_rd(Pζ, k; rtol)
         Ωng = Ωg * (1 + gfac)
-        f_NL != 0 && (Ωng += sigw_hybrid(Pζ, k; f_NL, ksupp, conv, rtol))
+        if f_NL != 0
+            Ωng += sigw_hybrid(Pζ, k; f_NL, ksupp, conv, rtol)
+            if connected
+                Ωng += sigw_Z_connected(Pζ, k; f_NL, ksupp, N)[1]
+                Ωng += sigw_C_connected(Pζ, k; f_NL, ksupp, N)[1]
+            end
+            f4 && (Ωng += sigw_f4_reducible(Pζ, k; f_NL, ksupp, conv, rtol))
+        end
         Ωng * Ωr * g_factor(k)
     end
     SIGWSpectrum(ks, _f_of_k_Hz .* ks, Ω)

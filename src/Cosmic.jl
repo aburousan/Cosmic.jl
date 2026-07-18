@@ -125,4 +125,33 @@ export Gauge, Newtonian, Synchronous, Comoving, UniformDensity, SpatiallyFlat
 export gauge_shift, δ_species, θ_species
 export curvature_ℛ, curvature_ζ, bardeen_Φ, bardeen_Ψ
 
+# --- precompilation workload -------------------------------------------------
+# The first `cosmology()` in a fresh session otherwise pays a multi-minute
+# just-in-time cost: the recombination and perturbation ODE solves force Julia
+# to compile the OrdinaryDiffEq solver stack on the spot. Running that path here,
+# inside `@compile_workload`, bakes the compiled methods into the package's
+# precompile cache — measured on a fresh session, the first `cosmology()` drops
+# from ~1050 s to ~0.02 s, at the cost of a one-time ~23 min precompile that an
+# installed package pays once (per Julia and package version) at `Pkg.add` time.
+#
+# That precompile is repaid on every later session, but it is charged again each
+# time this source tree changes — so while actively developing the package, turn
+# the workload off with
+#
+#     using PrecompileTools; PrecompileTools.set_preferences!(Cosmic, "precompile_workload" => false)
+#
+# (writes LocalPreferences.toml; set it back to `true` before tagging a release).
+using PrecompileTools: @setup_workload, @compile_workload
+@setup_workload begin
+    @compile_workload begin
+        try
+            c = cosmology()
+            rec = recombination(c)
+            bg = BackgroundCache(c, rec)
+            solve_perturbations(c, bg, 0.1)
+        catch
+        end
+    end
+end
+
 end # module

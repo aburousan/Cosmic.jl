@@ -107,7 +107,7 @@ function _tensor_rhs!(du, u, p, x)
     H0 = Constants.H0_in_invMpc(c.h)
     hdot = u[L.ihdot]
     P = _tensor_P(u, L)
-    s(ell) = _curvature_streaming(K, k, ell)
+    s(ell) = _curvature_streaming(K, k, ell, 2)
     cotend = _curvature_cot_closure(K, k, η)
 
     # Photon temperature hierarchy F_l^(2), including the exact Thomson source.

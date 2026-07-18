@@ -15,8 +15,22 @@ continuous K -> 0 limit of the curved equations.
 @inline spatial_curvature_K(c::Cosmology) =
     -Ω_k(c) * Constants.H0_in_invMpc(c.h)^2
 
-@inline function _curvature_streaming(K, k, ell)
-    r = 1 - K * (ell^2 - 1) / k^2
+"""
+    _curvature_streaming(K, k, ell, m=0)
+
+The free-streaming coefficient `sqrt(q^2 - K*ell^2)/k` of the optimal hierarchy
+(arXiv:2005.12119 eq. 20), whose recursion coefficients are the m-independent
+`0-kappa_j^0`.  The eigenvalue relation is m-dependent, however:
+
+    q^2 = k^2 + (1 + |m|) K,
+
+so the harmonic wavenumber `k` handed in by the scalar (m=0), vector (m=1) and
+tensor (m=2) drivers refers to a different `q` in each case.  Passing `m` is
+what keeps that conversion exact; hard-coding the scalar relation costs 2K for
+tensors, which is a double-digit error on the coefficient at the smallest q.
+"""
+@inline function _curvature_streaming(K, k, ell, m::Integer=0)
+    r = 1 + K * ((1 + abs(m)) - ell^2) / k^2
     # Closed eigenmodes have a finite angular tower.  Roundoff at its endpoint
     # can make r a tiny negative number; a genuinely negative value means that
     # this multipole does not exist for the selected eigenmode.
