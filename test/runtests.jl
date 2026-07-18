@@ -1275,7 +1275,9 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         # This targets `_halofit_background` directly rather than going through
         # matter_power_spectrum: the massive-ν hierarchy makes a full P(k) solve
         # minutes-long, and the defect lives entirely in this one function.
-        c = cosmology()                       # default: m_ν = [0.06, 0, 0]
+        # Explicit Yp, as the neighbouring tests do: the default Yp=:bbn solves
+        # the whole 63-reaction network, which this test has no use for.
+        c = cosmology(m_ν=[0.06, 0.0, 0.0], Yp=0.24568)
         @test !isempty(get_all_species(c, MassiveNeutrinos))
         bg = Cosmic._halofit_background(c, 0.0)   # threw a FieldError before
         # Σm_ν = 0.06 eV ⇒ Ω_ν h² = 0.06/93.14, so f_ν = Ω_ν/(Ω_m+Ω_ν) ≈ 4.5e-3
@@ -1283,7 +1285,7 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         @test bg.fν ≈ Ω_ν / (Ω_m(c) + Ω_ν) rtol = 0.02
         @test 0.0 < bg.fν < 0.05
         # a massless model must give exactly zero
-        c0 = cosmology(m_ν=Float64[])
+        c0 = cosmology(m_ν=Float64[], Yp=0.24568)
         @test Cosmic._halofit_background(c0, 0.0).fν == 0.0
         # the density parameters themselves stay sane
         @test 0.0 < bg.Ω_m < 1.0
