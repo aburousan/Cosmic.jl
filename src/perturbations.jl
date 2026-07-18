@@ -16,7 +16,7 @@ recombination -- is spread over eight decades in a, and a linear grid would spen
 all its effort where nothing happens.
 """
 
-using OrdinaryDiffEq: ODEProblem, solve, KenCarp4
+using OrdinaryDiffEq: ODEProblem, solve, KenCarp4, DiscreteCallback
 using Interpolations: linear_interpolation, Line
 import QuadGK
 
@@ -162,11 +162,15 @@ struct Layout
     # dark-energy fluid perturbations (w ≠ −1): δ_fld, θ_fld at the very end
     has_fld::Bool
     ifld::Int
+    # Horndeski scalar: two slots — img = H0·v_X, img+1 = v̇_X (coordinate-
+    # time derivative, dimensionless), for the second-order scalar EOM
+    has_mg::Bool
+    img::Int
     n::Int
 end
 
 function Layout(lmax_γ, lmax_ν; lmax_m=8, nq=0, nmν=0, has_dcdm=false, lmax_dr=17,
-    has_fld=false)
+    has_fld=false, has_mg=false)
     iγ = 6
     iG = iγ + (lmax_γ + 1)
     iν = iG + (lmax_γ + 1)
@@ -176,9 +180,11 @@ function Layout(lmax_γ, lmax_ν; lmax_m=8, nq=0, nmν=0, has_dcdm=false, lmax_d
     idr = idc + 2
     n_dc = has_dcdm ? (idr + lmax_dr) : n_mν
     ifld = n_dc + 1
-    n = has_fld ? (ifld + 1) : n_dc
+    n_fld = has_fld ? (ifld + 1) : n_dc
+    img = n_fld + 1
+    n = has_mg ? img + 1 : n_fld
     Layout(lmax_γ, lmax_ν, lmax_m, nq, nmν, iγ, iG, iν, iM,
-        has_dcdm, lmax_dr, idc, idr, has_fld, ifld, n)
+        has_dcdm, lmax_dr, idc, idr, has_fld, ifld, has_mg, img, n)
 end
 
 "Index of Ψ_ℓ(q_iq) for massive species `s`."
@@ -190,7 +196,7 @@ end
 
 The solved hierarchy for one wavenumber `k` (1/Mpc).
 """
-struct PerturbationSolution{C,R,S}
+struct PerturbationSolution{C,R,S,M}
     cosmo::C
     rec::R
     k::Float64
@@ -200,12 +206,16 @@ struct PerturbationSolution{C,R,S}
     lmax_m::Int
     nq::Int
     nmν::Int
+    mg::M          # HorndeskiFunctions for an MG run, nothing otherwise
 end
+
+PerturbationSolution(c, rec, k, sol, lγ, lν, lm, nq, nmν) =
+    PerturbationSolution(c, rec, k, sol, lγ, lν, lm, nq, nmν, nothing)
 
 _layout(p::PerturbationSolution) =
     Layout(p.lmax_γ, p.lmax_ν; lmax_m=p.lmax_m, nq=p.nq, nmν=p.nmν,
         has_dcdm=get_species(p.cosmo, DecayingCDM) !== nothing,
-        has_fld=_fld_species(p.cosmo) !== nothing)
+        has_fld=_fld_species(p.cosmo) !== nothing, has_mg=p.mg !== nothing)
 
 # Decaying-DM parameters threaded through the RHS: the decay rate and the two
 # background ln-density histories (needed at every step for the source terms).
@@ -305,8 +315,50 @@ by construction rather than by coincidence.
     (δρ, ρPθ, ρPσ)
 end
 
+"""
+    _massive_ν_mg_moments(u, du, L, G, k, a, mν)
+
+The extra massive-neutrino moments the Horndeski scalar EOM needs on top of
+[`_massive_ν_moments`](@ref): the pressure perturbation δP and the coordinate-time
+(x = ln a) derivative of the shear (ρ̄+P̄)σ. All in ρ_c0 units, same normalisation.
+
+    δP        ∝ (1/3a⁴) ∫dq q⁴/ε f₀ Ψ₀
+    d/dx[(ρ̄+P̄)σ] = (2/3)[ -4·norm·Σ q⁴/ε Ψ₂ + norm·Σ q⁴(Ψ₂'/ε - a²m²Ψ₂/ε³) ]
+
+using norm ∝ a⁻⁴ (⇒ d ln norm/dx = -4), d(1/ε)/dx = -a²m²/ε³, and Ψ₂' = dΨ₂/dx =
+`du[…,2]` (the ℓ=2 hierarchy RHS, since the ODE integrates in x). The δP integral
+weights q⁴/ε by Ψ₀ exactly as the shear weights it by Ψ₂ — the same kernel, the
+monopole rather than the quadrupole.
+"""
+@inline function _massive_ν_mg_moments(u, du, L, G::MassiveNuGrid, k, a, mν)
+    δP = 0.0
+    dρPσ = 0.0
+    for (s, m) in enumerate(mν)
+        am = m.y1 * a
+        norm = m.Ω_rel / F_massless / a^4
+        Iδp = 0.0
+        Iσ = 0.0
+        IdσA = 0.0
+        @inbounds for iq in 1:L.nq
+            q = G.q[iq]
+            ε = sqrt(q^2 + am^2)
+            wf = G.w[iq] * G.f0[iq]
+            Ψ0 = u[_imν(L, s, iq, 0)]
+            Ψ2 = u[_imν(L, s, iq, 2)]
+            dΨ2 = du[_imν(L, s, iq, 2)]
+            Iδp += wf * q^4 / ε * Ψ0
+            Iσ += wf * q^4 / ε * Ψ2
+            IdσA += wf * q^4 * (dΨ2 / ε - am^2 * Ψ2 / ε^3)
+        end
+        δP += norm * (1 / 3) * Iδp
+        dρPσ += (2 / 3) * norm * (-4 * Iσ + IdσA)
+    end
+    (δP, dρPσ)
+end
+
 @inline function _metric(u, L, k, K, a, ℋ_, H0, ργ, ρν, ρb, ρc, G, mν,
-    ρdc=0.0, ρdr=0.0, ρfld=0.0, wfld=-1.0, ppf=false, cs2f=1.0, Pmν=0.0)
+    ρdc=0.0, ρdr=0.0, ρfld=0.0, wfld=-1.0, ppf=false, cs2f=1.0, Pmν=0.0,
+    mg=nothing)
     δ_γ = u[L.iγ]
     θ_γ = 3k / 4 * u[L.iγ+1]
     s2 = _curvature_streaming(K, k, 2)
@@ -369,13 +421,37 @@ end
         end
     end
 
-    ψ = φ - 3 * pre * Σσ
-    φ̇ = (-1.5 * H0^2 * a^2 * Δ - (k^2 - 3K) * φ - 3 * ℋ_^2 * ψ) / (3 * ℋ_)
-    (φ, ψ, φ̇, θ_γ, σ_γ, δ_γ, θ_ν, σ_ν, δ_ν, γp)
+    if mg === nothing
+        ψ = φ - 3 * pre * Σσ
+        φ̇ = (-1.5 * H0^2 * a^2 * Δ - (k^2 - 3K) * φ - 3 * ℋ_^2 * ψ) / (3 * ℋ_)
+        return (φ, ψ, φ̇, θ_γ, σ_γ, δ_γ, θ_ν, σ_ν, δ_ν, γp)
+    end
+
+    # Horndeski branch: B&S 1404.3713 eqs. 3.18-3.19 (α_T = 0), coordinate
+    # time. The scalar carries its own second-order EOM (evaluated in _rhs!
+    # after the hierarchy derivatives are known); here everything is
+    # algebraic in the state (φ, v_X, v̇_X):
+    #   ψ  from the anisotropy constraint, with the α_M·H·v_X shift and all
+    #      matter couplings divided by M*² (B&S tildes);
+    #   Φ̇  from the momentum constraint 3.18, using v_m = −aθ_m/k² so that
+    #      (ρ̃+p̃)v_m = −3H0²·a·Θtot/(k²M*²). Conformal φ' = a·Φ̇.
+    # Evolving Φ from the momentum rather than the Hamiltonian constraint is
+    # what keeps the system stable sub-horizon; the Hamiltonian constraint is
+    # then a monitored invariant, not an equation of motion.
+    αB, αK, αM, M2, dlnH, hm = mg
+    H = ℋ_ / a
+    vX = u[L.img] / H0
+    vdX = u[L.img+1]
+    ψ = φ + αM * H * vX - 3 * pre * Σσ / M2
+    Vm = -3 * H0^2 * a * Θtot / (k^2 * M2)
+    Φ̇ = (-(2 - αB) * H * ψ + αB * H * vdX +
+         (2 * dlnH + hm) * H^2 * vX - Vm) / 2
+    (φ, ψ, a * Φ̇, θ_γ, σ_γ, δ_γ, θ_ν, σ_ν, δ_ν, γp)
 end
 
 function _rhs!(du, u, p, x)
     bg, k, K, L, G, mν, dcdm, fld = p
+    mgf = length(p) >= 9 ? p[9] : nothing
     c = bg.cosmo
     a = exp(x)
 
@@ -395,13 +471,32 @@ function _rhs!(du, u, p, x)
     wfld = fld === nothing ? -1.0 : w(fld.de, a)
     use_ppf = fld !== nothing && fld.ppf
     cs2f = fld === nothing ? 1.0 : fld.cs2
-    # background (ρ+P) of the massive neutrinos, needed only by the PPF S-term
-    Pmν = (use_ppf && !isempty(mν)) ?
+    # background (ρ+P) of the massive neutrinos, needed by the PPF S-term and
+    # by the Horndeski matter-enthalpy sum
+    Pmν = ((use_ppf || mgf !== nothing) && !isempty(mν)) ?
           sum(ρ_over_ρc0(m, a) + P_over_ρc0(m, a) for m in mν) : 0.0
+
+    mg = nothing
+    if mgf !== nothing && x >= mgf.x_on
+        αB = mgf.α_B(x)
+        αK = mgf.α_K(x)
+        begin
+            αM = mgf.α_M(x)
+            M2 = mgf.M_star2(x)
+            # matter (ρ+p) sums, in ρ/ρ_c0 units; DE is the scalar itself
+            rpm = (4 / 3) * (ργ + ρν + ρdr) + ρb + ρc + ρdc + Pmν
+            # fixed background ⇒ d ln H/dx = −(3/2)(ρ+p)_tot/ρ_tot exactly;
+            # Λ contributes zero to (ρ+p) and mg excludes any fld species
+            E2 = (ℋ_ / (a * H0))^2
+            dlnH = -1.5 * rpm / E2
+            hm = 3 * H0^2 * a^2 * rpm / (ℋ_^2 * M2)
+            mg = (αB, αK, αM, M2, dlnH, hm)
+        end
+    end
 
     φ, ψ, φ̇, θ_γ, σ_γ, δ_γ, θ_ν, σ_ν, δ_ν, γp =
         _metric(u, L, k, K, a, ℋ_, H0, ργ, ρν, ρb, ρc, G, mν, ρdc, ρdr,
-            ρfld, wfld, use_ppf, cs2f, Pmν)
+            ρfld, wfld, use_ppf, cs2f, Pmν, mg)
 
     δ_c, θ_c, δ_b, θ_b = u[1], u[2], u[3], u[4]
     iγ, iG, iν = L.iγ, L.iG, L.iν
@@ -553,6 +648,115 @@ function _rhs!(du, u, p, x)
                               9 * ℋ_^2 * (cs2f - wfld) * Qf / k^2 - 3 * ℋ_ * W / k^2)
             du[ifld+1] = inv * (-(1 - 3 * cs2f) * ℋ_ * Qf +
                                 k^2 * cs2f * δf + opw * k^2 * ψ + W)
+        end
+    end
+
+    # ---- Horndeski scalar: second-order EOM for v_X -------------------------
+    # Reduced from B&S 1404.3713 eqs. 3.20+3.21 by algebraic elimination of Φ̈
+    # (combo = eq321 − (3α_B H/2)·eq320); coefficients and their verification
+    # (v̈ coefficient = H²D_kin, coupled high-k dispersion = c_s²k² of B&S
+    # 3.13 exactly) in derivations/horndeski_vx_eom.wl. Coordinate time
+    # throughout; sits after the hierarchy blocks because the Ψ̇-derived
+    # source needs the total-shear derivative, i.e. the ℓ = 2 du entries.
+    if L.has_mg
+        if mg === nothing
+            du[L.img] = 0.0
+            du[L.img+1] = 0.0
+        else
+            αB, αK, αM, M2, dlnH, hm = mg
+            H = ℋ_ / a
+            Hsq = H^2
+            Hd = dlnH * Hsq
+            vX = u[L.img] / H0
+            vdX = u[L.img+1]
+            kk = (k / a)^2
+            rm = hm * Hsq                              # (ρ̃+p̃)_m, absolute
+            E2 = (ℋ_ / (a * H0))^2
+            rr = ργ + ρν + ρb + ρc                     # Σρ_m, ρ/ρ_c0 units
+            rhom = 3 * H0^2 * rr / M2                  # ρ̃_m, absolute
+            # p̃̇_m: background matter pressure is radiation only (baryons are
+            # pressureless in the background, matching E(a)), p ∝ a⁻⁴, plus
+            # the tilde leak: p̃̇ = ṗ/M*² − α_M H p̃
+            ptd = -(4 + αM) * H * H0^2 * (ργ + ρν) / M2
+            αBd = H * mgf.α_Bx(x)                      # coordinate-time α̇
+            αKd = H * mgf.α_Kx(x)
+            αMd = H * mgf.α_Mx(x)
+
+            # sources: Pπ = p̃_mπ_m (the GR-matched −3·pre·Σσ shear sum), its
+            # coordinate-time derivative via the ℓ=2 hierarchy entries, the
+            # total pressure perturbation, and the momentum flux. The γ/ν/b/c
+            # sums (flat space); massive neutrinos add their own moments below.
+            Σσv = (4 / 3) * (ργ * σ_γ + ρν * σ_ν)
+            dΣσ_dx = (4 / 3) * (ργ * (du[L.iγ+2] / 2 - 4σ_γ) +
+                                ρν * (du[L.iν+2] / 2 - 4σ_ν))
+            dpm = 3 * H0^2 * ((ργ * δ_γ + ρν * δ_ν) / 3 + c_s2 * ρb * u[3]) / M2
+            Θt = ρc * u[2] + ρb * u[4] + (4 / 3) * (ργ * θ_γ + ρν * θ_ν)
+            if L.nmν > 0
+                # massive ν: density-weighted shear/momentum add to the sums, the
+                # pressure perturbation adds to δP, and the shear derivative adds
+                # to dΣσ/dx. p̃̇_m already-per-species tilde term goes into ptd.
+                δρmν, ρPθmν, ρPσmν = _massive_ν_moments(u, L, G, k, a, mν)
+                δPmν, dρPσmν = _massive_ν_mg_moments(u, du, L, G, k, a, mν)
+                Σσv += ρPσmν
+                dΣσ_dx += dρPσmν
+                dpm += 3 * H0^2 * δPmν / M2
+                Θt += ρPθmν
+                # background p̃̇_ν = 3H₀²H(dP_ν/dx − α_M P_ν)/M*², dP_ν/dx by a
+                # centred difference of the (smooth) background pressure integral
+                Pν = sum(P_over_ρc0(m, a) for m in mν)
+                hx = 1e-5
+                dPν_dx = (sum(P_over_ρc0(m, a * exp(hx)) for m in mν) -
+                          sum(P_over_ρc0(m, a * exp(-hx)) for m in mν)) / (2hx)
+                ptd += 3 * H0^2 * H * (dPν_dx - αM * Pν) / M2
+            end
+            if L.has_dcdm && dcdm !== nothing
+                # decaying CDM (pressureless matter) + its dark radiation (w=1/3,
+                # density-weighted moments F_ℓ = physical·ρ_dr a⁴/ρ_c0). Same sums:
+                idc, idr = L.idc, L.idr
+                Θt += ρdc * u[idc+1] + k * u[idr+1] / a^4
+                Σσv += (2 / 3) * u[idr+2] / a^4
+                dΣσ_dx += (2 / 3) * (du[idr+2] - 4 * u[idr+2]) / a^4
+                dpm += 3 * H0^2 * (u[idr] / a^4) / 3 / M2      # δP_dr = δρ_dr/3
+                # background p̃̇_dr: P_dr = ρ_dr/3 is NOT ∝ a⁻⁴ — the decay source
+                # aΓρ_dcdm feeds ρ_dr, so use the true background derivative.
+                Pdr = ρdr / 3
+                hx = 1e-5
+                dPdr_dx = (exp(dcdm.lnρr(x + hx)) - exp(dcdm.lnρr(x - hx))) / (2hx) / 3
+                ptd += 3 * H0^2 * H * (dPdr_dx - αM * Pdr) / M2
+            end
+            Pπ = -4.5 * H0^2 * a^2 * Σσv / (k^2 * M2)
+            Pπd = -4.5 * H0^2 * a^2 * H / (k^2 * M2) *
+                  ((2 - αM) * Σσv + dΣσ_dx)
+            Vm = -3 * H0^2 * a * Θt / (k^2 * M2)
+
+            cA = (3αB^2 + 2αK) * Hsq / 2               # = H² D_kin
+            cB = H * (3αB^3 * Hsq + 2αB * H * (6αBd + αK * H) +
+                      6αB^2 * ((3 + 2αM) * Hsq + 2Hd) +
+                      4 * (αKd * H + αK * ((3 + 2αM) * Hsq + 2Hd))) / 4
+            cC0 = (4αKd * αM * H^3 + 3αB^3 * αM * Hsq^2 +
+                   6 * (αBd * H - 2Hd - rm) * rm +
+                   3αB^2 * Hsq * (2αMd * H + 2αM^2 * Hsq + 2Hd +
+                                  αM * (4Hsq + 6Hd) + rm) +
+                   2αK * Hsq * (2αMd * H + 2αM^2 * Hsq + 2Hd +
+                                αM * (4Hsq + 6Hd) + rm) +
+                   2αB * (6αBd * αM * H^3 + αK * αM * Hsq^2 +
+                          3 * (-αM * Hsq * rhom + H * ptd + αM * Hsq * rm +
+                               Hd * rm))) / 4
+            cCkk = αBd * H + 2αM * Hsq - 2Hd + αB * (Hsq + Hd) - rm
+            cPh0 = H * (3αB^3 * Hsq + 2αB * H * (6αBd + αK * H) +
+                        6αB^2 * ((2 + αM) * Hsq + 2Hd) +
+                        4 * (αKd * H + αK * ((2 + αM) * Hsq + 2Hd))) / 4
+            cPhkk = -(αB + 2αM) * H
+            cPp = cPh0
+            cdp = 3αB * H / 2
+            cVm = (-6αBd * H - 3αB^2 * Hsq - 2αK * Hsq + 12Hd - 6αB * Hd +
+                   6rm) / 4
+
+            v̈X = -(cB * vdX + (cC0 + cCkk * kk) * vX +
+                   (cPh0 + cPhkk * kk) * φ + cPp * Pπ + cA * Pπd +
+                   cdp * dpm + cVm * Vm) / cA
+            du[L.img] = H0 * vdX / H
+            du[L.img+1] = v̈X / H
         end
     end
 
@@ -849,13 +1053,33 @@ magnitude, which is exactly what "tight coupling" means. Boltzmann codes usually
 swap in an analytic tight-coupling expansion at that point for speed; we instead
 pay for an implicit solver, which is slower but has no extra approximation to
 get wrong.
+
+Pass `mg = stable_basis_solve(c, spec)` to evolve linear Horndeski gravity
+(α_T = 0) alongside the matter hierarchy: the scalar's velocity potential
+v_X gets its own second-order equation of motion (Bellini & Sawicki
+1404.3713, reduced), and the modified Einstein constraints feed the altered
+metric potentials φ, ψ back into every species. Omit it (the default) and
+the GR code path is untouched, bit for bit. Massive neutrinos and decaying CDM are supported: their density, pressure,
+momentum and (time-derivative of) anisotropic-stress moments — plus, for decaying
+CDM, the dark radiation's decay-sourced background pressure derivative — enter the
+scalar EOM. The B&S 3.17 Hamiltonian constraint, which the system does not evolve,
+stays satisfied along the solution to the *same* level as the massless GR limit
+under the same model (≈1e-5 relative for a physically-motivated spec; the residual
+is set by the model's activation transient, not by the massive-ν or dcdm sources).
+The MG branch is flat space only and still errors on a dark-energy fluid.
 """
 function solve_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
     lmax_γ=25, lmax_ν=32, lmax_m=12, nq=20,
     a_end=1.0, reltol=1e-8, abstol=1e-10, ic::Symbol=:adiabatic, cs2_de=1.0,
-    de_scheme::Symbol=:auto)
+    de_scheme::Symbol=:auto, mg::Union{Nothing,HorndeskiFunctions}=nothing)
 
     K = spatial_curvature_K(c)
+    if mg !== nothing
+        K == 0 || throw(ArgumentError(
+            "Horndeski perturbations are implemented for flat space only"))
+        _fld_species(c) === nothing || throw(ArgumentError(
+            "attach either a dark-energy fluid or a Horndeski scalar, not both"))
+    end
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
     nmν = length(mν)
     # The free-streaming grid samples f₀; use the neutrinos' own distribution
@@ -880,7 +1104,7 @@ function solve_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
         (; de, cs2=float(cs2_de), ppf)
     end
     L = Layout(lmax_γ, lmax_ν; lmax_m, nq, nmν, has_dcdm=dcdm !== nothing,
-        has_fld=fld !== nothing)
+        has_fld=fld !== nothing, has_mg=mg !== nothing)
     k = float(k)
 
     # The initial conditions demand *both* that the mode is outside the horizon
@@ -901,10 +1125,41 @@ function solve_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
 
     u0 = initial_conditions(c, bg, k, L, x0, G, mν; ic,
         fld_ppf=fld !== nothing && fld.ppf)
-    prob = ODEProblem(_rhs!, u0, (x0, log(a_end)), (bg, k, K, L, G, mν, dcdm, fld))
-    sol = solve(prob, KenCarp4(); reltol, abstol)
+    prob = ODEProblem(_rhs!, u0, (x0, log(a_end)),
+        (bg, k, K, L, G, mν, dcdm, fld, mg))
+    cb = nothing
+    if mg !== nothing && mg.x_on > x0
+        # Adiabatic activation: before x_on the scalar is frozen at zero; the
+        # physical adiabatic mode is the shared time shift, on which every
+        # velocity potential is equal and its rate is pure time dilation:
+        #     v_X = v_m = −a θ_c/k²,       v̇_X = −ψ
+        # (the second follows from the CDM Euler equation: v̇_c = −ψ exactly).
+        # Sub-horizon modes relax to the attractor dynamically either way;
+        # without this the modes still super-horizon at x_on keep an
+        # O(unity-of-the-effect) scalar isocurvature transient that shows up
+        # in the low-k P(k) and ℓ ≲ 100 ISW ratios against hi_class.
+        H0c = Constants.H0_in_invMpc(c.h)
+        fired = Ref(false)
+        cond = (u, t, integ) -> !fired[] && t >= mg.x_on
+        function activate!(integ)
+            fired[] = true
+            a = exp(integ.t)
+            u = integ.u
+            s2 = _curvature_streaming(K, k, 2)
+            ργ = Ω_γ(c) / a^4
+            ρν = _Ω_or_zero(c, MasslessNeutrinos) / a^4
+            Σσ = (4 / 3) * (ργ * u[L.iγ+2] + ρν * u[L.iν+2]) / (2s2)
+            ψ = u[5] - 4.5 * H0c^2 * a^2 * Σσ / k^2
+            u[L.img] = -H0c * a * u[2] / k^2
+            u[L.img+1] = -ψ
+        end
+        cb = DiscreteCallback(cond, activate!; save_positions=(false, false))
+    end
+    sol = cb === nothing ? solve(prob, KenCarp4(); reltol, abstol) :
+          solve(prob, KenCarp4(); reltol, abstol, callback=cb,
+        tstops=[mg.x_on])
 
-    PerturbationSolution(c, bg.rec, k, sol, lmax_γ, lmax_ν, lmax_m, nq, nmν)
+    PerturbationSolution(c, bg.rec, k, sol, lmax_γ, lmax_ν, lmax_m, nq, nmν, mg)
 end
 
 "Convenience: build the background cache and solve in one call."
@@ -1008,4 +1263,46 @@ function δ_matter_comoving(p::PerturbationSolution, a)
     δ_N = (ρc * u[1] + ρb * u[3]) / (ρc + ρb)
     θ_c = u[2]
     δ_N + 3 * ℋ(c, a) * θ_c / p.k^2
+end
+
+"""
+    δ_matter_total_comoving(p, a)
+
+Total-matter density contrast in the comoving (synchronous) gauge, summing cold
+dark matter, baryons **and** massive neutrinos, weighted by their physical
+densities at `a`. For a massless-ν cosmology this is identical to
+[`δ_matter_comoving`](@ref); the two diverge only when Σm_ν > 0, where the
+free-streaming neutrinos suppress the total-matter spectrum by a few percent
+below the cold (cdm+baryon) one on small scales.
+
+The synchronous correction 3ℋθ_c/k² is applied to every component with the
+proper (1+w) weight, so it reduces exactly to the cold expression when there are
+no massive neutrinos. Use [`δ_matter_comoving`](@ref) (cold) for the halo mass
+function and σ(R); this total version is what the HMcode two-halo term wants.
+"""
+function δ_matter_total_comoving(p::PerturbationSolution, a)
+    c = p.cosmo
+    L = _layout(p)
+    u = p.sol(log(a))
+    ρb, ρc = Ω_b(c) / a^3, Ω_c(c) / a^3
+    θ_c = u[2]
+    corr = 3 * ℋ(c, a) * θ_c / p.k^2
+
+    # cold (cdm+baryon) numerator and density
+    num_N = ρc * u[1] + ρb * u[3]           # Σ ρ_X δ_X (Newtonian gauge)
+    ρ_tot = ρc + ρb
+    ρ_plus_P = ρc + ρb                       # w = 0 for cdm+baryon
+
+    if L.nmν > 0
+        G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
+        mν = Tuple(get_all_species(c, MassiveNeutrinos))
+        δρ_ν, _, _ = _massive_ν_moments(u, L, G, p.k, a, mν)
+        ρ_ν = sum(ρ_over_ρc0(m, a) for m in mν)
+        P_ν = sum(P_over_ρc0(m, a) for m in mν)
+        num_N += δρ_ν                        # δρ_ν already carries ρ_ν weighting
+        ρ_tot += ρ_ν
+        ρ_plus_P += ρ_ν + P_ν
+    end
+
+    num_N / ρ_tot + corr * ρ_plus_P / ρ_tot
 end

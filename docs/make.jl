@@ -30,6 +30,7 @@ makedocs(;
         "CMB, lensing & tensors" => "cmb.md",
         "Matter power spectrum" => "matter_power.md",
         "Primordial & inflation" => "primordial.md",
+        "Modified gravity" => "modified_gravity.md",
         "Induced gravitational waves" => "sigw.md",
         "Spectral distortions" => "spectral_distortions.md",
         "API index" => "api.md",

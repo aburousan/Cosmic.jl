@@ -1,15 +1,14 @@
 """
 Second-order Einstein--Boltzmann angular machinery.
 
-This file contains only pieces that are exact and independently testable before
-the full second-order solver is exposed: Fourier-triangle geometry, rotations of
-first-order scalar multipoles, the complete (ell,m) hierarchy layout, angular
-couplings, the linear-in-second-order radiation operator, and the general
-line-of-sight projection kernels.  The quadratic sources are deliberately not
-represented by zero defaults: the production driver is added only after every
-Einstein, Liouville, collision, matter and recombination source has a reference
-gate.  This prevents a partial hierarchy from being mistaken for a physical
-second-order calculation.
+This file contains pieces that are exact and independently testable before the
+full second-order solver is exposed: the K=0 Fourier-triangle formulation,
+rotations of first-order scalar multipoles, the complete (ell,m) hierarchy
+layout, angular couplings, quadratic source groups, the linear-in-second-order
+radiation operator, and flat line-of-sight projection kernels. The production
+driver is added only after every Einstein, Liouville, collision, matter and
+recombination source has a reference gate. This prevents a partial hierarchy
+or a flat kernel from being mistaken for a general physical calculation.
 
 Conventions and equations are those of Pitrou (arXiv:0809.3245) and Pettinari's
 thesis (arXiv:1405.2280), chapters 5--6 and appendices A--B.  SONG is used only
@@ -17,6 +16,7 @@ as an independent numerical reference at matched flat, adiabatic settings.
 """
 
 using SpecialFunctions: loggamma, sphericalbesselj
+using OrdinaryDiffEq: ODEProblem, solve, Rodas5P
 
 # --- Fourier triangle and rotations -----------------------------------------
 
@@ -309,6 +309,49 @@ struct FirstOrderRadiationSnapshot{VI<:AbstractVector,VE<:AbstractVector,VN<:Abs
     I::VI
     E::VE
     N::VN
+end
+
+"""
+    _scalar_E_from_G(G)
+
+Recover the first-order scalar helicity multipoles `E_l` from Cosmic's
+already-evolved polarization hierarchy `G_l`; no second polarization hierarchy
+is integrated.  This is Tram--Lesgourgues (arXiv:1305.3261), eq. (2.40b),
+multiplied by four so that `E` has the same brightness normalization as `I`:
+
+    E_l = (2l+1)/sqrt((l-1)l(l+1)(l+2)) *
+          [-l(l-1)G_l + sum_{j=0}^{l-2} i^(l-j)(1+(-1)^(l+j))(2j+1)G_j].
+
+Only equal-parity terms survive, so the returned multipoles are real whenever
+`G` is real.  This correspondence is used only for the flat second-order
+Fourier solver.  It is not an exact curved-space shortcut; curved second-order
+polarization requires the unreduced spin hierarchy and curved product harmonics.
+"""
+function _scalar_E_from_G(G::AbstractVector)
+    length(G) >= 3 || throw(ArgumentError("scalar polarization needs G_0 through G_2"))
+    T = promote_type(eltype(G), Float64)
+    E = zeros(T, length(G))
+    for l in 2:(length(G)-1)
+        bracket = -l * (l - 1) * G[l+1]
+        for j in (l % 2):2:(l-2)
+            phase = isodd((l-j) ÷ 2) ? -one(T) : one(T)
+            bracket += 2 * phase * (2j + 1) * G[j+1]
+        end
+        E[l+1] = (2l+1) * bracket / sqrt((l-1)*l*(l+1)*(l+2))
+    end
+    E
+end
+
+"Build K=0 quadratic-kernel radiation input from Cosmic's existing scalar solve."
+function _flat_first_order_radiation_snapshot(p::PerturbationSolution, a::Real)
+    iszero(spatial_curvature_K(p.cosmo)) || throw(ArgumentError(
+        "curved second-order polarization requires the full curved spin hierarchy"))
+    L = _layout(p)
+    u = p.sol(log(float(a)))
+    I = [(2l+1)*u[L.iγ+l] for l in 0:L.lmax_γ]
+    G = [u[L.iG+l] for l in 0:L.lmax_γ]
+    N = [(2l+1)*u[L.iν+l] for l in 0:L.lmax_ν]
+    FirstOrderRadiationSnapshot(I, _scalar_E_from_G(G), N)
 end
 
 @inline function _rotated_raw(v::AbstractVector, t::SecondOrderTriangle,
@@ -656,4 +699,311 @@ function _J_pol(Ls::Int, l::Int, m::Int, x::Real; cross::Bool=false)
                _wigner3j(l, l1, Ls, m, 0, -m) * sphericalbesselj(l1, float(x))
     end
     (isodd(m) ? -1.0 : 1.0) * (2l + 1) * acc
+end
+
+# --- Perturbed recombination (STZ arXiv:0812.3652 §3) -------------------------
+#
+# δ_e = δn_e/n_e and δT_M are first-order quantities that first matter at
+# second order, where they modulate every Thomson collision term. The
+# derivation ledger is derivations/second_order_implementation.tex
+# §"Perturbed recombination"; equation numbers below are STZ's.
+#
+# The collision term Q is the SAME three-level-atom net rate the background
+# solver uses (RECFAST branch: β evaluated at T_M by that convention), taken
+# at displaced arguments — never a re-derived expression. Its partial
+# derivatives are central differences of that one function. Helium is treated
+# as already recombined over the hydrogen era evolved here (STZ include it via
+# Saha; that extension belongs to the ledger before it enters the code).
+
+"Net hydrogen recombination rate Q [m⁻³ s⁻¹] of the background solver's
+three-level branch: ṅ_e|coll = Q, with C_P the Peebles escape factor and
+β(T_M) the RECFAST-convention photoionization rate."
+function _peebles_Q(n_e, n_H, T_M, Hz, fudge)
+    x_H = clamp(n_e / n_H, 0.0, 1.0)          # H⁺ fraction (He recombined)
+    n_1s = max(n_H - n_e, 0.0)
+    aH = α_H(T_M, fudge)
+    Adb = _debroglie(T_M)
+    K_ion = Constants.T_of_wavenumber(Constants.L_H_ion)
+    K_lya = Constants.T_of_wavenumber(Constants.L_H_alpha)
+    βH = aH * Adb * exp(-(K_ion - K_lya) / T_M)
+    β_ground = aH * Adb * exp(-K_ion / T_M)
+    λ_lya = 1 / Constants.L_H_alpha
+    K_H = λ_lya^3 / (8π * Hz)
+    C_H = (1 + K_H * Constants.Λ_2s1s_H * n_1s) /
+          (1 + K_H * (Constants.Λ_2s1s_H + βH) * n_1s)
+    -C_H * (aH * n_e * x_H * n_H - β_ground * n_1s)
+end
+
+"Net HeII→HeI recombination rate Q_He [m⁻³ s⁻¹] of the background solver's
+singlet channel (non-Sobolev escape branch K = λ³/(8πH); the Sobolev and
+H-continuum refinements affect only the escape route of a channel that is
+itself subdominant in δ_e after z ≈ 1600 — flagged in the ledger). x_HeII is
+the ionized-helium fraction from the background solution."
+function _peebles_Q_He(n_e, n_H, fHe, T_M, Hz)
+    x_e = n_e / n_H
+    x_HeII = clamp((x_e - min(x_e, 1.0)) / fHe, 0.0, 1.0)
+    Tw = Constants.T_of_wavenumber
+    aHe = α_He(T_M)
+    Adb = _debroglie(T_M)
+    K_2s_He1 = Tw(Constants.L_He1_ion - Constants.L_He_2s)
+    K_2s1s_He1 = Tw(Constants.L_He_2s)
+    K_2p2s_He1 = Tw(Constants.L_He_2p - Constants.L_He_2s)
+    βHe = 4 * aHe * Adb * exp(-K_2s_He1 / T_M)
+    β_ground_He = βHe * exp(-K_2s1s_He1 / T_M)
+    He_Boltz = exp(min(K_2p2s_He1 / T_M, 680.0))
+    K_He = (1 / Constants.L_He_2p)^3 / (8π * Hz)
+    n_He1_eff = max(fHe * n_H * (1 - x_HeII), 0.0) * He_Boltz
+    C_He = (1 + K_He * Constants.Λ_2s1s_He1 * n_He1_eff) /
+           (1 + K_He * (Constants.Λ_2s1s_He1 + βHe) * n_He1_eff)
+    # per-volume electron rate: fHe·nH·dx_HeII/dt
+    -C_He * (aHe * n_e * x_HeII * fHe * n_H -
+             β_ground_He * fHe * n_H * (1 - x_HeII))
+end
+
+"Total net recombination rate over both channels, expressed in exactly the
+STZ eq.-39 argument list (n_e, n_H, T_M, H): the H⁺ and HeII fractions are
+derived internally (x_H = min(x_e,1), x_HeII = (x_e−x_H)/f_He), so the
+displaced-argument perturbation flows through both channels consistently."
+_Q_total(n_e, n_H, fHe, T_M, Hz, fudge) =
+    _peebles_Q(n_e, n_H, T_M, Hz, fudge) + _peebles_Q_He(n_e, n_H, fHe, T_M, Hz)
+
+
+"Explicit-argument Saha x_e(nH, T): the same three ionization balances the
+background `saha_state` closes, here as a function of its physical arguments
+so the equilibrium initial condition can be perturbed at displaced arguments."
+function _saha_xe_of(nH, T, fHe)
+    A = _debroglie(T)
+    S_H = A * exp(-Constants.T_of_wavenumber(Constants.L_H_ion) / T)
+    S_He1 = 4A * exp(-Constants.T_of_wavenumber(Constants.L_He1_ion) / T)
+    S_He2 = 1A * exp(-Constants.T_of_wavenumber(Constants.L_He2_ion) / T)
+    f(xe) = begin
+        ne = max(xe, 1e-12) * nH
+        xH = S_H / (S_H + ne)
+        r1 = S_He1 / ne
+        r2 = S_He2 / ne
+        xHeII = r1 / (1 + r1 + r1 * r2)
+        xHeIII = r1 * r2 / (1 + r1 + r1 * r2)
+        xH + fHe * (xHeII + 2xHeIII) - xe
+    end
+    lo, hi = 1e-10, 1 + 2fHe
+    for _ in 1:200
+        mid = 0.5 * (lo + hi)
+        (f(lo) * f(mid) <= 0) ? (hi = mid) : (lo = mid)
+        hi - lo < 1e-12 && break
+    end
+    0.5 * (lo + hi)
+end
+
+
+"Net hydrogen recombination rate [m⁻³ s⁻¹] from the SAME effective
+multi-level atom (HyRec SWIFT) the background solver integrates, as an
+explicit function of its physical arguments — so the perturbation partials
+come from the identical rate family as the background, with no
+reconciliation factors. Valid in HyRec's SWIFT window (checked by caller);
+the ionized fraction is derived from the STZ argument list."
+function _Q_hyrec(n_e, n_H, T_M, T_R, Hz, dω_cb, dω_bH, dNeff)
+    xe = n_e / n_H
+    xH = min(xe, 1.0)
+    dxlna, _ = hyrec_dxHII_dlna(xe, xH, n_H * 1e-6, Hz,
+        _HY_kB * T_M, _HY_kB * T_R, dω_cb, dω_bH, dNeff)
+    n_H * Hz * dxlna
+end
+
+"Kompaneets coupling Λ_C = (4σ_T a_R k_B/m_e) n_e T_R⁴ (T_R − T_M) (STZ eq. 49),
+in J m⁻³ s⁻¹."
+function _kompaneets_Λ(n_e, T_R, T_M)
+    aR = Constants.a_rad_SI
+    (4 * Constants.σ_T_SI * Constants.c_SI * aR /
+     (Constants.m_e_SI * Constants.c_SI^2)) * n_e * T_R^4 * (T_R - T_M) *
+        Constants.k_B_SI / Constants.k_B_SI
+end
+
+"""
+    PerturbedRecombination
+
+First-order electron-density and matter-temperature perturbations for one
+mode: callables `δ_e(x)`, `δT_M(x)` of x = ln a (δT_M in kelvin, transfer
+normalization ℛ = 1). Built by [`perturbed_recombination`](@ref).
+"""
+struct PerturbedRecombination{I1,I2}
+    k::Float64
+    δ_e::I1
+    δT_M::I2
+end
+
+"""
+    perturbed_recombination(c, rec, p; z_start = 3500, z_end = 20, fudge = 1.14)
+
+Solve the STZ system — eq. (38) for δ_e with the escape-probability
+perturbation δ_H of eq. (40), and eq. (51) for δT_M — for the solved mode `p`,
+as a post-processing ODE over the stored first-order solution. Starts in tight
+Saha coupling (δ_e = δ_b, δT_M = ¼δ_γ T_M).
+"""
+function perturbed_recombination(c::Cosmology, rec::RecombinationSolution,
+    p::PerturbationSolution; z_start=3500.0, z_end=20.0, fudge=1.14)
+    k = p.k
+    bg = BackgroundCache(c, rec)
+    L = _layout(p)
+    H0 = Constants.H0_in_invMpc(c.h)
+
+    # per-instant first-order inputs from the stored mode
+    function inputs(x)
+        a = exp(x)
+        u = p.sol(x)
+        ℋ_ = bg.ℋ(x)
+        ργ = Ω_γ(c) / a^4
+        ρν = _Ω_or_zero(c, MasslessNeutrinos) / a^4
+        ρb = Ω_b(c) / a^3
+        ρc = Ω_c(c) / a^3
+        G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
+        mν = Tuple(get_all_species(c, MassiveNeutrinos))
+        φ, ψ, φ̇ = _metric(u, L, k, spatial_curvature_K(c), a, ℋ_, H0,
+            ργ, ρν, ρb, ρc, G, mν)
+        (; a, ℋ_, δ_b=u[3], θ_b=u[4], δ_γ=u[L.iγ], ψ, φ̇)
+    end
+
+    # background thermal state at redshift z
+    function thermal(z)
+        nH = n_H_of_z(c, z)
+        xe = x_e(rec, z)
+        (; nH, n_e=xe * nH, T_M=T_matter(rec, z), T_R=c.Tcmb * (1 + z),
+            Hz=H_SI(c, z))
+    end
+
+    ε = 1e-5
+    fHe_ = f_He(c)
+    T0fid3 = (2.7255 / c.Tcmb)^3
+    dω_cb = ((Ω_b(c) + Ω_c(c)) * c.h^2 - 0.14175) * T0fid3
+    dω_bH = (Ω_b(c) * c.h^2 * (1 - c.Yp) - 0.02242 * (1 - 0.246738546372)) * T0fid3
+    dNeff = _N_eff_of(c) - 3.046
+    function rhs!(du, y, _, x)
+        a = exp(x)
+        z = 1 / a - 1
+        δ_e, δTM = y
+        In = inputs(x)
+        th = thermal(z)
+        n_n = th.nH * (1 + fHe_)              # H + He nuclei
+        n_t0 = n_n + th.n_e
+        # STZ eq. 37 defines Q⁰ from the background itself:
+        # Q⁰ = (dn_e/dt + 3H n_e), evaluated by differentiating the stored
+        # x_e history. This guarantees the zeroth-order balance is exact no
+        # matter which solver (HyRec, Sobolev-He) produced the background;
+        # the three-level functional form below supplies only the
+        # displaced-argument PARTIALS for δQ.
+        # widen the stencil at late times: after freeze-out dn_e/dη is a
+        # small difference of slowly varying quantities, and a too-narrow
+        # stencil turns interpolation noise into a percent-level Q⁰ error
+        dzz = max(2.0, 5e-3 * z)
+        ne_p = x_e(rec, z + dzz) * n_H_of_z(c, z + dzz)
+        ne_m = x_e(rec, z - dzz) * n_H_of_z(c, z - dzz)
+        dne_dt = -(1 + z) * th.Hz * (ne_p - ne_m) / (2dzz)
+        Q0 = dne_dt + 3 * th.Hz * th.n_e
+
+        # δ̇_b from continuity; δ_H per STZ eq. 40
+        δ̇_b = -In.θ_b + 3 * In.φ̇                     # conformal-time derivative
+        δ_H = -In.ψ - δ̇_b / (3 * In.ℋ_)
+        δTR = 0.25 * In.δ_γ * th.T_R
+
+        # δQ: displaced-argument partials of the SAME rate family the
+        # background integrated. Inside HyRec's SWIFT window (the entire
+        # visibility era) that is the effective multi-level atom itself —
+        # strictly more general than the Peebles partials CLASS and SONG use,
+        # and with the proper δT_R dependence the three-level RECFAST
+        # convention cannot represent. Outside the window (helium era, deep
+        # freeze-out) the three-level family stands in, and that boundary is
+        # a ledger-flagged refinement, not a hidden switch.
+        δTR_rel = 0.25 * In.δ_γ
+        in_swift = 0.0042 < _HY_kB * th.T_R < 0.395
+        if in_swift
+            Qh(ne, nH, TM, TR, Hz) = _Q_hyrec(ne, nH, TM, TR, Hz, dω_cb, dω_bH, dNeff)
+            dQ_ne = (Qh(th.n_e * (1 + ε), th.nH, th.T_M, th.T_R, th.Hz) -
+                     Qh(th.n_e * (1 - ε), th.nH, th.T_M, th.T_R, th.Hz)) / (2ε)
+            dQ_nH = (Qh(th.n_e, th.nH * (1 + ε), th.T_M, th.T_R, th.Hz) -
+                     Qh(th.n_e, th.nH * (1 - ε), th.T_M, th.T_R, th.Hz)) / (2ε)
+            dQ_TM = (Qh(th.n_e, th.nH, th.T_M * (1 + ε), th.T_R, th.Hz) -
+                     Qh(th.n_e, th.nH, th.T_M * (1 - ε), th.T_R, th.Hz)) / (2ε)
+            dQ_TR = (Qh(th.n_e, th.nH, th.T_M, th.T_R * (1 + ε), th.Hz) -
+                     Qh(th.n_e, th.nH, th.T_M, th.T_R * (1 - ε), th.Hz)) / (2ε)
+            dQ_H = (Qh(th.n_e, th.nH, th.T_M, th.T_R, th.Hz * (1 + ε)) -
+                    Qh(th.n_e, th.nH, th.T_M, th.T_R, th.Hz * (1 - ε))) / (2ε)
+            δQ = dQ_ne * δ_e + dQ_nH * In.δ_b + dQ_TM * (δTM / th.T_M) +
+                 dQ_TR * δTR_rel + dQ_H * δ_H
+        else
+            dQ_ne = (_Q_total(th.n_e * (1 + ε), th.nH, fHe_, th.T_M, th.Hz, fudge) -
+                     _Q_total(th.n_e * (1 - ε), th.nH, fHe_, th.T_M, th.Hz, fudge)) / (2ε)
+            dQ_nH = (_Q_total(th.n_e, th.nH * (1 + ε), fHe_, th.T_M, th.Hz, fudge) -
+                     _Q_total(th.n_e, th.nH * (1 - ε), fHe_, th.T_M, th.Hz, fudge)) / (2ε)
+            dQ_TM = (_Q_total(th.n_e, th.nH, fHe_, th.T_M * (1 + ε), th.Hz, fudge) -
+                     _Q_total(th.n_e, th.nH, fHe_, th.T_M * (1 - ε), th.Hz, fudge)) / (2ε)
+            dQ_H = (_Q_total(th.n_e, th.nH, fHe_, th.T_M, th.Hz * (1 + ε), fudge) -
+                    _Q_total(th.n_e, th.nH, fHe_, th.T_M, th.Hz * (1 - ε), fudge)) / (2ε)
+            δQ = dQ_ne * δ_e + dQ_nH * In.δ_b + dQ_TM * (δTM / th.T_M) + dQ_H * δ_H
+        end
+
+        # δΛ_C likewise (same function, displaced arguments)
+        Λ0 = _kompaneets_Λ(th.n_e, th.T_R, th.T_M)
+        dΛ_ne = (_kompaneets_Λ(th.n_e * (1 + ε), th.T_R, th.T_M) -
+                 _kompaneets_Λ(th.n_e * (1 - ε), th.T_R, th.T_M)) / (2ε)
+        dΛ_TR = (_kompaneets_Λ(th.n_e, th.T_R * (1 + ε), th.T_M) -
+                 _kompaneets_Λ(th.n_e, th.T_R * (1 - ε), th.T_M)) / (2ε)
+        dΛ_TM = (_kompaneets_Λ(th.n_e, th.T_R, th.T_M * (1 + ε)) -
+                 _kompaneets_Λ(th.n_e, th.T_R, th.T_M * (1 - ε))) / (2ε)
+        δΛ = dΛ_ne * δ_e + dΛ_TR * (δTR / th.T_R) + dΛ_TM * (δTM / th.T_M)
+
+        # conformal-time rates; a·(1 Mpc/c in s) converts the SI collision rates
+        # to conformal Mpc units used by ℋ
+        s_per_Mpc = Constants.Mpc_SI / Constants.c_SI
+        aQ_ne = In.a * s_per_Mpc * Q0 / th.n_e
+        kB = Constants.k_B_SI
+
+        # STZ eq. 38 (divided by n_e), then to d/dx via 1/ℋ
+        dδe_dη = δ̇_b + In.a * s_per_Mpc * ((In.ψ * Q0 + δQ) / th.n_e) - δ_e * aQ_ne
+        # STZ eq. 51, solved for the time derivative
+        aont = In.a * s_per_Mpc / n_t0
+        dTM_dη = -2 * In.ℋ_ * δTM - (2 / 3) * th.T_M * In.θ_b -
+                 aont * Q0 * δTM + 2 * th.T_M * In.φ̇ -
+                 (2 / 3) * aont * (1.5 * th.T_M * Q0 - Λ0 / kB) *
+                 (In.ψ - (th.n_e * δ_e + n_n * In.δ_b) / n_t0) +
+                 (2 / 3) * aont * (δΛ / kB - 1.5 * th.T_M * δQ)
+
+        du[1] = dδe_dη / In.ℋ_
+        du[2] = dTM_dη / In.ℋ_
+        nothing
+    end
+
+    x0 = log(1 / (1 + z_start))
+    x1 = log(1 / (1 + z_end))
+    In0 = inputs(x0)
+    # Equilibrium (Saha) initial condition: at z_start the plasma is on the
+    # Saha attractor, so δ_e = δ_b + δln x_e^Saha with the logarithmic
+    # derivatives taken from the explicit-argument Saha closure. This kills
+    # the transient a bare δ_e = δ_b IC would inject through the weakly
+    # collisional helium era.
+    th0 = thermal(z_start)
+    fHe0 = f_He(c)
+    εi = 1e-4
+    x0S = _saha_xe_of(th0.nH, th0.T_R, fHe0)
+    dlnxe_dlnn = (log(_saha_xe_of(th0.nH * (1 + εi), th0.T_R, fHe0)) -
+                  log(_saha_xe_of(th0.nH * (1 - εi), th0.T_R, fHe0))) / (2εi)
+    dlnxe_dlnT = (log(_saha_xe_of(th0.nH, th0.T_R * (1 + εi), fHe0)) -
+                  log(_saha_xe_of(th0.nH, th0.T_R * (1 - εi), fHe0))) / (2εi)
+    δT_over_T0 = 0.25 * In0.δ_γ
+    δe0 = In0.δ_b * (1 + dlnxe_dlnn) + δT_over_T0 * dlnxe_dlnT
+    y0 = [δe0, δT_over_T0 * T_matter(rec, z_start)]
+    sol = solve(ODEProblem(rhs!, y0, (x0, x1)), Rodas5P(autodiff=false);
+        reltol=1e-8, abstol=1e-10)
+    PerturbedRecombination(k, x -> sol(clamp(x, x0, x1))[1],
+        x -> sol(clamp(x, x0, x1))[2])
+end
+
+"STZ eq. 52: the exact super-horizon target δ_e/δ_b = 1 − ∂_η ln x_e/(3ℋ),
+from the background recombination history alone."
+function super_horizon_δe_ratio(c::Cosmology, rec::RecombinationSolution, z;
+    dz=1.0)
+    a = 1 / (1 + z)
+    ℋmpc = a * H_Mpc(c, a)                       # conformal ℋ in 1/Mpc
+    # dln x_e/dη = (dln x_e/dz)(dz/dη), with dz/dη = −(1+z)ℋ/a·a = −(1+z)ℋ
+    dlnxe_dz = (log(x_e(rec, z + dz)) - log(x_e(rec, z - dz))) / (2dz)
+    dlnxe_dη = -dlnxe_dz * (1 + z) * ℋmpc
+    1 - dlnxe_dη / (3 * ℋmpc)
 end

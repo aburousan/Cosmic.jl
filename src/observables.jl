@@ -84,10 +84,16 @@ function bao_k_grid(rec::RecombinationSolution, kmin, kmax;
 end
 
 """
-    matter_power_spectrum(c, rec; z = 0, kmin = 1e-4, kmax = 10, nk = nothing)
+    matter_power_spectrum(c, rec; z = 0, kmin = 1e-4, kmax = 10, nk = nothing, total = false)
 
 Solve the hierarchy on a grid of wavenumbers and tabulate the matter transfer
 function at redshift `z`. `k` is in 1/Mpc.
+
+By default this returns the *cold* (cdm+baryon) spectrum, the convention CAMB and
+CLASS report and the input the halo mass function and σ(R) want. Pass
+`total = true` for the total-matter spectrum that also includes massive-neutrino
+density perturbations (identical to cold for massless ν); HMcode's two-halo term
+uses this one.
 
 With `nk = nothing` (the default) the grid comes from [`bao_k_grid`](@ref), which
 refines itself across the acoustic oscillations. Passing an integer `nk` forces a
@@ -98,18 +104,24 @@ One Boltzmann solve per mode: this is the expensive step, and it is embarrassing
 parallel, so the modes are threaded.
 """
 function matter_power_spectrum(c::Cosmology, rec::RecombinationSolution;
-    z=0.0, kmin=1e-4, kmax=10.0, nk=nothing, lmax_γ=25, lmax_ν=32)
+    z=0.0, kmin=1e-4, kmax=10.0, nk=nothing, lmax_γ=25, lmax_ν=32,
+    total::Bool=false,
+    mg::Union{Nothing,HorndeskiFunctions}=nothing)
 
     bg = BackgroundCache(c, rec)
     logk = nk === nothing ? log.(bao_k_grid(rec, kmin, kmax)) :
            collect(range(log(kmin), log(kmax); length=nk))
     δm = zeros(length(logk))
     a = scale_factor(z)
+    # `total=true` sums cdm+baryon+massive-ν (total matter); the default cold
+    # (cdm+baryon) spectrum is what the halo mass function and σ(R) want, while
+    # HMcode's two-halo term wants the total. For massless ν the two coincide.
+    δfun = total ? δ_matter_total_comoving : δ_matter_comoving
 
     Threads.@threads for i in eachindex(logk)
         k = exp(logk[i])
-        p = solve_perturbations(c, bg, k; lmax_γ, lmax_ν)
-        δm[i] = δ_matter_comoving(p, a)
+        p = solve_perturbations(c, bg, k; lmax_γ, lmax_ν, mg)
+        δm[i] = δfun(p, a)
     end
 
     MatterPowerSpectrum(c, float(z), logk, δm,

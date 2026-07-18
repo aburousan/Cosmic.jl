@@ -38,6 +38,9 @@ using QuadGK: quadgk
 # top-hat window and linear RD transfer function (paper eqs. 21-22)
 @inline _pbh_W(x) = 3 * (sin(x) - x * cos(x)) / x^3
 @inline _pbh_T(x) = (y = x / sqrt(3); 3 * (sin(y) - y * cos(y)) / y^3)
+# the sinc window that shows up when the curvature field itself (not its
+# gradient) is volume-averaged — the ζ-average in the compaction variances
+@inline _pbh_Ws(x) = x == 0 ? 1.0 : sin(x) / x
 
 """
     pbh_moments(Pζ, r_m; rtol = 1e-6) -> (σ², μ²)
@@ -92,6 +95,116 @@ function pbh_β(Pζ, r_m; δc=0.55, K=4.0, γ=0.36, rtol=1e-6)
     quadgk(integrand, νc, νmax; rtol)[1]
 end
 
+# --- local non-Gaussianity: threshold statistics on the compaction function --
+#
+# Everything above assumes a Gaussian curvature field. The abundance is
+# exponentially sensitive to the tail of that field, so any primordial
+# non-Gaussianity — a curvaton, a USR feature — moves β by orders of magnitude
+# and cannot be neglected for a serious PBH prediction. We follow Ferrante,
+# Franciolini, Iovino & Urbano (arXiv:2211.01728), who compute β exactly for a
+# generic local relation ζ = F(ζ_G) by working with the compaction function
+# rather than the density contrast directly.
+#
+# The linear compaction is 𝒞₁ = 𝒞_G · F'(ζ_G) and the full (non-linear)
+# compaction is 𝒞 = 𝒞₁ − (1/4Φ)𝒞₁² (their eqs. 44, 47, 48), with Φ = 2/3 in
+# radiation so that 1/4Φ = 3/8 — the same non-linear map already used above,
+# now carrying the intrinsic NG through F'. Both 𝒞_G and ζ_G are Gaussian and
+# correlated; the abundance is the two-dimensional tail integral (eq. 56)
+#
+#     β = ∫_𝒟 𝒦(𝒞 − 𝒞_th)^γ P_G(𝒞_G, ζ_G) d𝒞_G dζ_G,
+#
+# over the type-I domain 𝒟 = {𝒞 > 𝒞_th ∧ 𝒞₁ < 2Φ}. When F(ζ_G) = ζ_G the map
+# F' ≡ 1 and this collapses to the Gaussian compaction-threshold result.
+
+# bivariate PDF of the linear compaction 𝒞_G and the curvature ζ_G, eq. (57):
+# a correlated Gaussian with variances σ_c², σ_r² and correlation γ_cr.
+@inline function _pbh_pg(CG, ζG, σc, σr, γcr)
+    z = CG / σc - γcr * ζG / σr
+    inv(2π * σc * σr * sqrt(1 - γcr^2)) *
+    exp(-ζG^2 / (2σr^2)) * exp(-z^2 / (2 * (1 - γcr^2)))
+end
+
+"""
+    pbh_compaction_variances(Pζ, r_m; Φ = 2/3, rtol = 1e-6) -> (σ_c², σ_cr², σ_r²)
+
+The three second moments of the compaction/curvature pair at horizon scale
+`r_m` (Mpc), for dimensionless primordial spectrum `Pζ(k)` — Ferrante et al.
+eqs. (50)–(52):
+
+    σ_c²  = (4Φ²/9) ∫ dk/k (k r_m)⁴ W² T² 𝒫_ζ,
+    σ_cr² = (2Φ/3)  ∫ dk/k (k r_m)² W Wₛ T² 𝒫_ζ,
+    σ_r²  =         ∫ dk/k          Wₛ² T² 𝒫_ζ,
+
+with `W` the top-hat window, `Wₛ` the sinc (volume-average) window, `T` the RD
+transfer function, and `Φ = 2/3` in radiation. `σ_c²` is by construction the
+same integral as the σ² returned by [`pbh_moments`](@ref).
+"""
+function pbh_compaction_variances(Pζ, r_m; Φ=2 / 3, rtol=1e-6)
+    lo, hi = log(1e-4 / r_m), log(40.0 / r_m)
+    segs = collect(range(lo, hi; length=ceil(Int, hi - lo) + 1))
+    fc(u) = (k = exp(u); x = k * r_m; x^4 * _pbh_W(x)^2 * _pbh_T(x)^2 * Pζ(k))
+    fcr(u) = (k = exp(u); x = k * r_m; x^2 * _pbh_W(x) * _pbh_Ws(x) * _pbh_T(x)^2 * Pζ(k))
+    fr(u) = (k = exp(u); x = k * r_m; _pbh_Ws(x)^2 * _pbh_T(x)^2 * Pζ(k))
+    σc2 = (4Φ^2 / 9) * quadgk(fc, segs...; rtol)[1]
+    σcr2 = (2Φ / 3) * quadgk(fcr, segs...; rtol)[1]
+    σr2 = quadgk(fr, segs...; rtol)[1]
+    (σc2, σcr2, σr2)
+end
+
+# derivative F'(ζ_G) of the local map for the power-series parametrisation
+# ζ = ζ_G + (3/5)f_NL ζ_G² + (9/25)g_NL ζ_G³ (eq. 3). The constant −σ² sometimes
+# written into the f_NL term drops out of the derivative, so it never enters here.
+@inline _pbh_dF(ζG, f_NL, g_NL) = 1 + (6 / 5) * f_NL * ζG + (27 / 25) * g_NL * ζG^2
+
+"""
+    pbh_β_ng(Pζ, r_m; f_NL = 0, g_NL = 0, dFdζ = nothing, δc = 0.55, K = 4.0,
+             γ = 0.36, Φ = 2/3, ζmax = 12.0, rtol = 1e-6)
+
+The PBH mass fraction at horizon scale `r_m` (Mpc) for a spectrum `Pζ(k)` with
+local non-Gaussianity, via threshold statistics on the compaction function
+(Ferrante et al. eq. 56). The curvature map ζ = F(ζ_G) enters only through its
+derivative: pass a callable `dFdζ(ζ_G)` for the exact form (e.g. the curvaton
+`F` of their eq. 4), or leave it `nothing` to use the `f_NL`/`g_NL` power
+series. `δc` is the compaction threshold 𝒞_th (< Φ = 2/3), `ζmax` the ζ_G
+integration half-width in units of σ_r.
+
+Reduces to the Gaussian compaction-threshold abundance when `f_NL = g_NL = 0`
+(or `dFdζ ≡ 1`). Returns 0 when the threshold cannot be reached.
+
+The threshold `δc` (= 𝒞_th) is held at its Gaussian, simulation-calibrated value,
+following Ferrante et al., who show the *statistics* dominate the NG response.
+The threshold itself also drifts under NG — a few percent for |f_NL| ≲ 𝒪(5)
+(Kehagias, Musco & Riotto, arXiv:1906.07135), set by the sim-calibrated
+shape→threshold relation. That drift is not modelled here; pass an NG-appropriate
+`δc` if you want to fold it in.
+"""
+function pbh_β_ng(Pζ, r_m; f_NL=0.0, g_NL=0.0, dFdζ=nothing, δc=0.55, K=4.0,
+    γ=0.36, Φ=2 / 3, ζmax=12.0, rtol=1e-6)
+    δc < Φ || throw(ArgumentError("δc (= 𝒞_th) must be < Φ = $(Φ), the maximum compaction"))
+    σc2, σcr2, σr2 = pbh_compaction_variances(Pζ, r_m; Φ, rtol)
+    (σc2 ≤ 0 || σr2 ≤ 0) && return 0.0
+    σc, σr = sqrt(σc2), sqrt(σr2)
+    γcr = σcr2 / (σc * σr)
+    dF(ζG) = dFdζ === nothing ? _pbh_dF(ζG, f_NL, g_NL) : dFdζ(ζG)
+
+    # the type-I 𝒞₁ window: from the lower threshold root up to the parabola's
+    # apex at 2Φ (eqs. 44, 58). Integrating in 𝒞₁ keeps the limits fixed for
+    # every ζ_G — the 1/|F'| Jacobian and P_G(𝒞₁/F', ζ_G) carry the NG.
+    C1lo = 2Φ * (1 - sqrt(1 - δc / Φ))
+    C1hi = 2Φ
+    Φ4 = 1 / (4Φ)
+    inner(ζG) = begin
+        d = dF(ζG)
+        d == 0 && return 0.0
+        quadgk(C1 -> begin
+                C = C1 - Φ4 * C1^2
+                C ≤ δc && return 0.0
+                K * (C - δc)^γ / abs(d) * _pbh_pg(C1 / d, ζG, σc, σr, γcr)
+            end, C1lo, C1hi; rtol)[1]
+    end
+    quadgk(inner, -ζmax * σr, ζmax * σr; rtol)[1]
+end
+
 const _M_sun_g = 1.98841e33
 const _M_evap_g = 5e14                 # evaporated by today below this
 
@@ -128,14 +241,23 @@ The mass function is reported against the *black-hole* mass
 M = 𝒦 M_H (δ_peak − δ_c)^γ evaluated at the β-weighted mean overdensity.
 Masses below the evaporation floor (5×10¹⁴ g ≈ 2.5×10⁻¹⁹ M_⊙) never enter
 `f_pbh`; their formation fraction is reported separately as `f_evaporated`.
+
+Pass `f_NL`, `g_NL`, or a curvature map derivative `dFdζ` to include primordial
+local non-Gaussianity; the formation fractions then come from [`pbh_β_ng`](@ref)
+(compaction-threshold statistics) instead of the Gaussian peaks-theory `pbh_β`.
 """
 function pbh_abundance(Pζ, c::Cosmology; kmin, kmax, nk=80, δc=0.55, K=4.0,
-    γ=0.36, rtol=1e-6)
+    γ=0.36, f_NL=0.0, g_NL=0.0, dFdζ=nothing, rtol=1e-6)
     k_eq = _k_equality(c)
     M_eq = 2.8e17
     ks = exp.(range(log(kmin), log(kmax); length=nk))
     MH = M_eq .* (ks ./ k_eq) .^ -2
-    βs = [pbh_β(Pζ, 1 / k; δc, K, γ, rtol) for k in ks]
+    # any primordial NG routes through the compaction-threshold integral; the
+    # Gaussian case keeps the lighter peaks-theory β
+    ng = f_NL != 0 || g_NL != 0 || dFdζ !== nothing
+    βs = ng ?
+         [pbh_β_ng(Pζ, 1 / k; f_NL, g_NL, dFdζ, δc, K, γ, rtol) for k in ks] :
+         [pbh_β(Pζ, 1 / k; δc, K, γ, rtol) for k in ks]
 
     # representative black-hole mass per horizon scale: critical collapse at the
     # typical forming amplitude (δ_m one σ above threshold, capped at type-I max)

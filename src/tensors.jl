@@ -98,6 +98,7 @@ end
 
 function _tensor_rhs!(du, u, p, x)
     bg, k, K, L, G, mν = p
+    mgf = length(p) >= 7 ? p[7] : nothing
     c = bg.cosmo
     a = exp(x)
     Hconf = getproperty(bg, Symbol("\u210b"))(x)
@@ -168,7 +169,12 @@ function _tensor_rhs!(du, u, p, x)
     L.nmν > 0 && (gw_source += _tensor_massive_source(u, L, G, mν, a, H0))
 
     du[L.ih] = hdot
-    du[L.ihdot] = -2Hconf * hdot - (k^2 + 2K) * u[L.ih] + gw_source
+    # Horndeski (alpha_T = 0): the run of the Planck mass adds Hubble friction
+    # and rescales the matter source, h'' + (2+α_M)ℋh' + k²h = source/M*²
+    # (B&S 1404.3713 tensor sector; the GW speed is untouched by assumption).
+    αM_t, M2_t = mgf === nothing ? (0.0, 1.0) : (mgf.α_M(x), mgf.M_star2(x))
+    du[L.ihdot] = -(2 + αM_t) * Hconf * hdot - (k^2 + 2K) * u[L.ih] +
+                  gw_source / M2_t
 
     # The integration variable is ln(a), not conformal time.
     du ./= Hconf
@@ -215,7 +221,7 @@ performed by this function.
 """
 function solve_tensor_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
     lmax_γ=12, lmax_ν=16, lmax_m=12, nq=20,
-    a_end=1.0, reltol=1e-8, abstol=1e-11)
+    a_end=1.0, reltol=1e-8, abstol=1e-11, mg::Union{Nothing,HorndeskiFunctions}=nothing)
 
     K = spatial_curvature_K(c)
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
@@ -230,7 +236,7 @@ function solve_tensor_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
     end
     x0 = clamp(min(x_horizon, log(1e-5)), log(1e-10), log(a_end))
     u0 = _tensor_initial_conditions(c, bg, k, K, L, G, mν, x0)
-    prob = ODEProblem(_tensor_rhs!, u0, (x0, log(a_end)), (bg, k, K, L, G, mν))
+    prob = ODEProblem(_tensor_rhs!, u0, (x0, log(a_end)), (bg, k, K, L, G, mν, mg))
     sol = solve(prob, KenCarp4(); reltol, abstol)
     TensorPerturbationSolution(c, bg.rec, k, sol, x0,
         lmax_γ, lmax_ν, lmax_m, nq, length(mν))

@@ -525,6 +525,18 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         D_bad = D_ℓ(cmb_spectra(c, r; lmax=500, nk=2000, ℓs=ℓ_trough, dop=-1.0), :TT)[1]
         @test D_off < D_ok
         @test D_bad < D_ok
+
+        # nk_solve interpolates the smooth sources onto the dense projection
+        # grid instead of solving the hierarchy at every k. Same integral, same
+        # grids -- the difference against the all-k path is pure source
+        # interpolation error, and at 600 solve points it must sit well below
+        # the physics tolerances above.
+        ℓ_fast = [50, 220, 400]
+        s_fast = cmb_spectra(c, r; lmax=500, nk=2000, ℓs=ℓ_fast, nk_solve=600)
+        s_full = cmb_spectra(c, r; lmax=500, nk=2000, ℓs=ℓ_fast)
+        for w in (:TT, :EE)
+            @test all(abs.(D_ℓ(s_fast, w) ./ D_ℓ(s_full, w) .- 1) .< 5e-3)
+        end
     end
 
     FULL_TESTS && @testset "CMB lensing" begin
@@ -815,6 +827,131 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         @test all(isfinite, pX.sol(0.0))
     end
 
+    @testset "Horndeski stable basis (structural)" begin
+        # The stable basis is defined so the three positivity inputs ARE the
+        # no-ghost/no-gradient conditions; the derived α's must obey the
+        # defining relations exactly, and α_B must hit its z=0 boundary value.
+        c = cosmology(m_ν=Float64[])
+        ΩΛ0 = sum(Cosmic.ρ_over_ρc0(s, 1.0)
+                  for s in c.species if s isa Cosmic.AbstractDarkEnergy)
+        ΩΛa(x) = ΩΛ0 / Cosmic.E(c, exp(x))^2
+        Dk(x) = ΩΛa(x) + 1.5 * (0.2ΩΛa(x))^2
+        spec = HorndeskiEFT(D_kin=Dk, M_star2=x -> 1.0, c_s2=x -> 0.8,
+            α_B0=0.2ΩΛa(0.0))
+        hf = stable_basis_solve(c, spec)
+        @test hf.α_B(0.0) ≈ spec.α_B0 rtol = 1e-6      # boundary condition
+        for x in (-4.0, -2.0, -0.5, 0.0)
+            @test hf.α_K(x) ≈ Dk(x) - 1.5 * hf.α_B(x)^2 rtol = 1e-3  # α_K def
+        end
+        @test hf.x_on > -15  # activates once D_kin is dynamically meaningful
+        @test_throws ArgumentError stable_basis_solve(
+            cosmology(m_ν=Float64[], Ω_k=0.01), spec)   # flat only
+    end
+
+    FULL_TESTS && @testset "Horndeski perturbations (hi_class-validated)" begin
+        # The MG branch is strictly opt-in: with no spec the state and solution
+        # are byte-identical to GR, and a spec with a vanishing kinetic term
+        # must reproduce the GR result (the scalar sources everything at O(α)).
+        c = cosmology(m_ν=Float64[])
+        r = recombination(c)
+        bg = Cosmic.BackgroundCache(c, r)
+        ΩΛ0 = sum(Cosmic.ρ_over_ρc0(s, 1.0)
+                  for s in c.species if s isa Cosmic.AbstractDarkEnergy)
+        ΩΛa(x) = ΩΛ0 / Cosmic.E(c, exp(x))^2
+
+        # near-GR: D_kin → 0 ⇒ φ, δ_c unchanged from the no-MG solve
+        tiny = HorndeskiEFT(D_kin=x -> 1e-6 * ΩΛa(x), M_star2=x -> 1.0,
+            c_s2=x -> 1.0, α_B0=0.0)
+        hf0 = stable_basis_solve(c, tiny)
+        for k in (0.01, 0.1)
+            pg = Cosmic.solve_perturbations(c, bg, k)
+            pm = Cosmic.solve_perturbations(c, bg, k; mg=hf0)
+            @test pm.sol(0.0)[5] ≈ pg.sol(0.0)[5] rtol = 1e-4
+            @test pm.sol(0.0)[1] ≈ pg.sol(0.0)[1] rtol = 1e-4
+        end
+
+        # propto_omega (ĉ_K=1, ĉ_B=0.2, ĉ_M=0.1) written in the stable basis by
+        # inverting B&S eq. 3.13 for c_s²(x) at the target α_B = 0.2Ω_Λ. The
+        # Newtonian-gauge Bardeen potential ratio φ_MG/φ_GR at z=0 sits at the
+        # sub-horizon plateau 1.0197, matching hi_class v3.2.3 to <1e-3.
+        E2(x) = Cosmic.E(c, exp(x))^2
+        dlnE(x) = (-log(E2(x + 2e-3)) + 8log(E2(x + 1e-3)) -
+                   8log(E2(x - 1e-3)) + log(E2(x - 2e-3))) / 24e-3
+        cB, cM = 0.2, 0.1
+        xs = collect(range(-15.0, 0.0; length=1200))
+        lnM2 = zeros(length(xs))
+        for i in 2:length(xs)
+            lnM2[i] = lnM2[i-1] + Cosmic.quadgk(u -> cM * ΩΛa(u), xs[i-1], xs[i])[1]
+        end
+        M2itp = Cosmic.linear_interpolation(xs, lnM2,
+            extrapolation_bc=Cosmic.Line())
+        M2f(x) = exp(M2itp(x))
+        αB(x) = cB * ΩΛa(x)
+        Dk(x) = ΩΛa(x) + 1.5αB(x)^2
+        function cs2(x)
+            hm = Cosmic._matter_enthalpy_over_H2(c, exp(x)) / M2f(x)
+            (-2cB * ΩΛa(x) * dlnE(x) -
+             (2 - αB(x)) * (dlnE(x) - αB(x) / 2 - cM * ΩΛa(x)) - hm) / Dk(x)
+        end
+        spec = HorndeskiEFT(D_kin=Dk, M_star2=M2f, c_s2=cs2, α_B0=αB(0.0))
+        hf = stable_basis_solve(c, spec; x_min=-6.0)
+        pg = Cosmic.solve_perturbations(c, bg, 0.03)
+        pm = Cosmic.solve_perturbations(c, bg, 0.03; mg=hf)
+        @test pm.sol(0.0)[5] / pg.sol(0.0)[5] ≈ 1.0197 rtol = 3e-3
+
+        # tensor sector: α_M adds Hubble friction and the M*² source rescaling;
+        # the h-mode stays finite and shifts from the GR amplitude
+        tg = Cosmic.solve_tensor_perturbations(c, bg, 0.05)
+        tm = Cosmic.solve_tensor_perturbations(c, bg, 0.05; mg=hf)
+        Lt = Cosmic.TensorLayout(12, 16; lmax_m=12, nq=20, nmν=0)
+        @test isfinite(tm.sol(0.0)[Lt.ih])
+        @test tm.sol(0.0)[Lt.ih] != tg.sol(0.0)[Lt.ih]
+    end
+
+    FULL_TESTS && @testset "Horndeski + massive ν / decaying CDM" begin
+        # The MG scalar EOM sources now include massive neutrinos (δP, momentum,
+        # shear and dσ/dx) and decaying CDM + dark radiation (density, momentum,
+        # shear/derivative, and a decay-aware background ṗ_dr). Validated off-line
+        # by the B&S 3.17 Hamiltonian-constraint residual: under one spec the
+        # massive-ν and dcdm solutions sit on the constraint surface to the same
+        # numerical floor as the massless GR limit (the residual scales with the
+        # spec's c_s² stiffness, not the species content). Here we guard that the
+        # near-GR limit stays uncorrupted and the full solve is finite + shifted.
+        function specs(c)
+            ΩΛ0 = sum(Cosmic.ρ_over_ρc0(s, 1.0)
+                      for s in c.species if s isa Cosmic.AbstractDarkEnergy)
+            ΩΛa(x) = ΩΛ0 / Cosmic.E(c, exp(x))^2
+            Dk(x) = ΩΛa(x) + 1.5 * (0.1 * ΩΛa(x))^2
+            tiny = HorndeskiEFT(D_kin=x -> 1e-6 * ΩΛa(x), M_star2=x -> 1.0,
+                c_s2=x -> 1.0, α_B0=0.0)
+            full = HorndeskiEFT(D_kin=Dk, M_star2=x -> 1.0, c_s2=x -> 0.5,
+                α_B0=0.1 * ΩΛa(0.0))
+            (stable_basis_solve(c, tiny), stable_basis_solve(c, full))
+        end
+        # A massive-ν cosmology, and a realistic decaying-CDM one (mostly-stable
+        # CDM + a small long-lived decaying fraction). The extreme Ω_c→0, fast-
+        # decay case makes the tiny-D_kin near-GR limit ill-conditioned (the
+        # rapidly-decaying background drives a residual α_B ~ 1e-4 that the 1/D_kin
+        # limit amplifies) — not a wiring issue, and the full spec's constraint
+        # residual stays clean there; we just don't pin near-GR on it.
+        for c in (cosmology(m_ν=[0.15, 0.0, 0.0], Yp=0.24568),
+                  cosmology(m_ν=Float64[], Yp=0.24568, Ω_c=0.25,
+                      Γ_dcdm=0.1, Ω_dcdm_ini=0.01))
+            r = recombination(c; hydrogen=:hyrec)
+            bg = Cosmic.BackgroundCache(c, r)
+            hf_tiny, hf_full = specs(c)
+            p0 = Cosmic.solve_perturbations(c, bg, 0.1)
+            pt = Cosmic.solve_perturbations(c, bg, 0.1; mg=hf_tiny)
+            # near-GR (D_kin → 0): the MG solve reproduces the GR one for this
+            # species content — the massive-ν / dcdm sources vanish with the scalar
+            @test pt.sol(0.0)[5] ≈ p0.sol(0.0)[5] rtol = 1e-3
+            # full spec: finite everywhere and genuinely MG-shifted from GR
+            pm = Cosmic.solve_perturbations(c, bg, 0.1; mg=hf_full)
+            @test all(isfinite, pm.sol(0.0))
+            @test !isapprox(pm.sol(0.0)[5], p0.sol(0.0)[5]; rtol = 1e-3)
+        end
+    end
+
     FULL_TESTS && @testset "tensor spectra" begin
         # The flat projector (Bessel table) and the curved projector
         # (hyperspherical recurrences) are independent code paths that must
@@ -1103,6 +1240,58 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         @test growth_factor(c, r, 2.0) < growth_factor(c, r, 1.0) < growth_factor(c, r, 0.0)
         # Growth rate f ≈ Ω_m(a)^0.55 today.
         @test growth_rate(c, r, 0.0) ≈ Ω_m(c)^0.55 rtol = 0.1
+    end
+
+    FULL_TESTS && @testset "HMcode-2020 (CAMB-validated)" begin
+        # The non-linear boost P_HMcode/P_lin, validated against CAMB's own
+        # mead2020 (halofit.f90) to <0.5% across 0.05 < k[h] < 10. These pins
+        # guard the halo-model chain -- in particular the formation-redshift
+        # concentration: it must solve g(a_f) = g(z)·δc/σ(γM) for a_f, NOT use
+        # the g_f/g_z proxy that assumes g ∝ a. The proxy dropped the g(z)≈0.78
+        # growth-suppression factor, under-concentrating small haloes ~28% and
+        # deflating P(k) by ~9% at k ≈ 8 h/Mpc (the concentration shapes the
+        # NFW window only at high k), which these high-k pins would catch.
+        c = cosmology(m_ν=Float64[], Yp=0.24568)
+        r = recombination(c; hydrogen=:hyrec)
+        P = matter_power_spectrum(c, r; z=0.0, kmin=1e-4, kmax=80.0, nk=400)
+        hm = hmcode_power(P)
+        h = c.h
+        @test power(hm, 1.0h) / power(P, 1.0h) ≈ 5.669 rtol = 0.01
+        @test power(hm, 3.0h) / power(P, 3.0h) ≈ 19.107 rtol = 0.01
+        @test power(hm, 8.0h) / power(P, 8.0h) ≈ 39.318 rtol = 0.01
+        # concentration boosted above the base B = 5.196 for an early-forming
+        # small halo (the fix; the old g∝a proxy sat far lower here)
+        @test Cosmic._concentration(hm, 1e11) > 15.0
+        # flat-ΛCDM Dolag factor is identically 1 (no wCDM/curvature)
+        @test Cosmic._hmcode_growth(c, 0.0).ginf_ratio ≈ 1.0 atol = 1e-9
+    end
+
+    FULL_TESTS && @testset "HMcode massive-ν total matter (CAMB-validated)" begin
+        # The halo model runs on the cold (cdm+baryon) spectrum; the total-matter
+        # nonlinear P(k) is reconstructed as P_cb^NL·(P_mm^lin/P_cb^lin), the
+        # neutrinos carrying their (scale-dependent, → f_cb² at high k) linear
+        # suppression through unchanged. Validated against CAMB mead2020 with
+        # Σmν = 0.15 eV to <0.25% across 0.05 < k[h] < 8; here we pin Cosmic's
+        # own nonlinear total/cold ratio to the CAMB total/cold ratio.
+        c = cosmology(m_ν=[0.15, 0.0, 0.0], Yp=0.24568)   # 1 massive + 2 massless
+        r = recombination(c; hydrogen=:hyrec)
+        Pc = matter_power_spectrum(c, r; z=0.0, kmin=1e-4, kmax=80.0, nk=250)
+        Pt = matter_power_spectrum(c, r; z=0.0, kmin=1e-4, kmax=80.0, nk=250, total=true)
+        hm_c = hmcode_power(Pc)                 # cold output (P_total defaults to Pc)
+        hm_t = hmcode_power(Pc; P_total=Pt)     # total-matter reconstruction
+        h = c.h
+        ratio(k) = power(hm_t, k) / power(hm_c, k)
+        @test ratio(0.1h) ≈ 0.9833 rtol = 0.005
+        @test ratio(1.0h) ≈ 0.9779 rtol = 0.005
+        @test ratio(8.0h) ≈ 0.9776 rtol = 0.005   # → f_cb² high-k limit
+        # passing the cold spectrum as its own total is the identity (massless path)
+        @test power(hmcode_power(Pc; P_total=Pc), 1.0h) == power(hm_c, 1.0h)
+        # massless cosmology: total spectrum is bit-identical to cold
+        cml = cosmology(m_ν=Float64[], Yp=0.24568)
+        rml = recombination(cml; hydrogen=:hyrec)
+        Pcl = matter_power_spectrum(cml, rml; z=0.0, kmin=1e-4, kmax=5.0, nk=60)
+        Ptl = matter_power_spectrum(cml, rml; z=0.0, kmin=1e-4, kmax=5.0, nk=60, total=true)
+        @test Pcl.δm == Ptl.δm
     end
 end
 

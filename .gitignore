@@ -4,3 +4,11 @@
 /Manifest.toml
 /docs/Manifest.toml
 /docs/build/
+
+# local-only process files
+PROJECT_STATE.md
+PUSH_CHECKLIST.md
+derivations/
+Examples/Manifest.toml
+*.log
+*.tsv

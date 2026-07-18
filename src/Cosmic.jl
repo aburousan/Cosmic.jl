@@ -27,6 +27,7 @@ using .Constants
 include("species.jl")
 include("background.jl")
 include("curvature.jl")
+include("modified_gravity.jl")
 include("bbn.jl")
 include("bbn_thermal.jl")
 include("neff.jl")
@@ -85,7 +86,7 @@ export qed_pressure, qed_energy_density, F_ann, F_scat, neff, N_eff_sm, nu_tempe
 
 # Perturbations
 export PerturbationSolution, BackgroundCache, solve_perturbations, initial_conditions
-export δ_cdm, θ_cdm, δ_baryon, θ_baryon, δ_photon, δ_neutrino, δ_matter, δ_matter_comoving, Θ, Φ, Ψ
+export δ_cdm, θ_cdm, δ_baryon, θ_baryon, δ_photon, δ_neutrino, δ_matter, δ_matter_comoving, δ_matter_total_comoving, Θ, Φ, Ψ
 export MassiveNuGrid
 
 # Observables
@@ -100,7 +101,10 @@ export EFTSpectrum, eft_power, p22, p13
 export CMBSpectra, cmb_spectra, D_ℓ, SourceFunction, source_function, PrimordialMatrix
 export InflatonSpectrum, inflaton_spectrum, inflation_background, tensor_power
 export SIGWSpectrum, sigw_spectrum, Ω_gw_rd, sigw_monochromatic, sigw_ΔNeff
+export sigw_spectrum_ng, sigw_hybrid, sigw_gnl_factor, sigw_omega_g_kernel
+export sigw_Z_connected, sigw_C_connected, sigw_f4_reducible, sigw_gnl_reducible
 export PBHAbundance, pbh_abundance, pbh_β, pbh_moments
+export pbh_β_ng, pbh_compaction_variances
 export LensedCMBSpectra, lensed_cmb_spectra, lensed_from_cls
 export TensorPerturbationSolution, solve_tensor_perturbations, tensor_h, tensor_hdot
 export TensorSourceFunction, TensorCMBSpectra, tensor_cmb_spectra
