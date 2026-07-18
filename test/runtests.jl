@@ -1266,6 +1266,30 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         @test Cosmic._hmcode_growth(c, 0.0).ginf_ratio ≈ 1.0 atol = 1e-9
     end
 
+    @testset "halofit with massive neutrinos" begin
+        # Massive neutrinos carry Ω_rel, not Ω, and a model may hold several of
+        # them, so the halofit background must sum Ω0 over the species. Reading
+        # a single `.Ω` threw a FieldError and took halofit down for every
+        # cosmology with a neutrino mass -- which is the default one. The
+        # coefficient tests above all run massless, so nothing caught it.
+        # This targets `_halofit_background` directly rather than going through
+        # matter_power_spectrum: the massive-ν hierarchy makes a full P(k) solve
+        # minutes-long, and the defect lives entirely in this one function.
+        c = cosmology()                       # default: m_ν = [0.06, 0, 0]
+        @test !isempty(get_all_species(c, MassiveNeutrinos))
+        bg = Cosmic._halofit_background(c, 0.0)   # threw a FieldError before
+        # Σm_ν = 0.06 eV ⇒ Ω_ν h² = 0.06/93.14, so f_ν = Ω_ν/(Ω_m+Ω_ν) ≈ 4.5e-3
+        Ω_ν = (0.06 / 93.14) / c.h^2
+        @test bg.fν ≈ Ω_ν / (Ω_m(c) + Ω_ν) rtol = 0.02
+        @test 0.0 < bg.fν < 0.05
+        # a massless model must give exactly zero
+        c0 = cosmology(m_ν=Float64[])
+        @test Cosmic._halofit_background(c0, 0.0).fν == 0.0
+        # the density parameters themselves stay sane
+        @test 0.0 < bg.Ω_m < 1.0
+        @test bg.Ω_m + bg.Ω_v ≈ 1.0 atol = 1e-3
+    end
+
     FULL_TESTS && @testset "HMcode massive-ν total matter (CAMB-validated)" begin
         # The halo model runs on the cold (cdm+baryon) spectrum; the total-matter
         # nonlinear P(k) is reconstructed as P_cb^NL·(P_mm^lin/P_cb^lin), the
