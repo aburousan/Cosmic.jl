@@ -7,7 +7,7 @@
 
 [Cosmic](https://github.com/aburousan/Cosmic.jl) is a cosmology library in pure Julia,
 following Baumann's *Cosmology* and Dodelson & Schmidt's *Modern Cosmology*.
-It grew out of a cosmology course at the Indian Association for the Cultivation of Science.
+It grew out of a cosmology course at the Indian Association for the Cultivation of Science. For a brief overview see [this](https://rousan.netlify.app/pages/physics/courses/cosmology/main_page/).
 
 ## The idea
 
