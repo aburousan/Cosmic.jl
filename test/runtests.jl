@@ -1,6 +1,8 @@
 using Cosmic
 using Test
 using QuadGK: quadgk
+using DelimitedFiles: writedlm
+using LinearAlgebra: Diagonal
 
 # Reference values are Planck 2018 (TT,TE,EE+lowE+lensing+BAO, Table 2 of
 # arXiv:1807.06209) unless stated otherwise. Tolerances reflect what the physics
@@ -1412,3 +1414,113 @@ end
     c = cosmology(Yp=:bbn)
     @test 0.24 < c.Yp < 0.25
 end
+
+@testset "neutrino flavour-density matrices" begin
+    mktempdir() do dir
+        x = [0.1, 0.2, 0.4]
+        y = [0.08, 0.4, 1.5, 5.0, 20.0]
+        z = [1.0, 1.03, 1.18]
+        w = [1.0, 1.001, 1.004]
+        writedlm(joinpath(dir, "z.dat"), hcat(x, z, w))
+        writedlm(joinpath(dir, "y_grid.dat"), y)
+
+        θ = 0.37
+        U = [cos(θ) sin(θ); -sin(θ) cos(θ)]
+        mats = Array{ComplexF64}(undef, length(x), length(y), 2, 2)
+        masses = zeros(length(x), length(y), 2)
+        for ix in eachindex(x), iy in eachindex(y)
+            occupations = [
+                1 / (exp(y[iy] / (1 + 0.01ix)) + 1),
+                1 / (exp(y[iy] / (1 + 0.005ix)) + 1),
+            ]
+            masses[ix, iy, :] .= occupations
+            mats[ix, iy, :, :] .= U * Diagonal(occupations) * U'
+        end
+        for i in 1:2
+            writedlm(joinpath(dir, "nuDens_diag$i.dat"),
+                hcat(x, real.(mats[:, :, i, i])))
+            writedlm(joinpath(dir, "nuDens_mass$i.dat"),
+                hcat(x, masses[:, :, i]))
+        end
+        writedlm(joinpath(dir, "nuDens_nd_12_re.dat"),
+            hcat(x, real.(mats[:, :, 1, 2])))
+        writedlm(joinpath(dir, "nuDens_nd_12_im.dat"),
+            hcat(x, imag.(mats[:, :, 1, 2])))
+
+        h = load_flavor_density_history(dir)
+        @test flavor_count(h) == 2
+        @test h.rho ≈ mats rtol = 1e-14
+        report = validate_flavor_density_history(h)
+        @test report.hermitian_residual < 1e-14
+        @test report.min_eigenvalue >= -1e-14
+        @test report.max_eigenvalue <= 1
+        @test flavor_density_matrix(h, x[2], y[3]) ≈ mats[2, 3, :, :]
+        @test qke_photon_temperature(h, x[2]) ≈ Cosmic._ME_MEV * z[2] / x[2]
+        @test qke_neff(h; method=:integral) > 0
+
+        d = qke_distribution(h, 1; basis=:mass, coordinate=:comoving)
+        @test Cosmic.nu_f0(d, y[3]) ≈ masses[end, 3, 1]
+        @test isfinite(Cosmic.nu_dlnf0(d, y[3]))
+        dmid = qke_distribution(h, 1; basis=:mass,
+            time=(x[1] + x[2]) / 2, coordinate=:comoving)
+        @test Cosmic.nu_f0(dmid, y[3]) ≈
+            (masses[1, 3, 1] + masses[2, 3, 1]) / 2
+        Tγ2 = Cosmic._ME_MEV * z[2] / x[2]
+        @test qke_scale_variable(h, Tγ2) ≈ x[2]
+        @test qke_neutrino_temperature(h, Tγ2) ≈ Cosmic._ME_MEV * w[2] / x[2]
+        @test qke_occupation(h, 1, y[3] * Cosmic._ME_MEV / x[2], Tγ2) ≈
+            real(mats[2, 3, 1, 1])
+        dcosmic = qke_distribution(h, 1; basis=:mass)
+        scale = z[end] / (11 / 4)^(1 / 3)
+        @test Cosmic.nu_f0(dcosmic, y[3] / scale) ≈ masses[end, 3, 1]
+        @test_throws DomainError flavor_density_matrix(h, 0.01, y[2])
+
+        mktempdir() do equilibrium
+            writedlm(joinpath(equilibrium, "z.dat"), hcat(x, ones(3), ones(3)))
+            writedlm(joinpath(equilibrium, "y_grid.dat"), y)
+            fd = 1 ./ (exp.(y) .+ 1)
+            writedlm(joinpath(equilibrium, "nuDens_diag1.dat"),
+                hcat(x, repeat(fd', length(x), 1)))
+            heq = load_flavor_density_history(equilibrium)
+            Tγeq = Cosmic._ME_MEV / x[2]
+            rate_qke = weak_rate(Tγeq, heq, 878.4;
+                direction=1, thermal=false)
+            rate_fd = weak_rate(Tγeq, Tγeq, 878.4;
+                direction=1, thermal=false)
+            @test rate_qke ≈ rate_fd rtol=2e-13
+            @test_throws ArgumentError weak_rate(
+                Tγeq, heq, 878.4; ξ_ν=0.01, thermal=false)
+        end
+
+        mktempdir() do incomplete
+            writedlm(joinpath(incomplete, "z.dat"), hcat(x, z, w))
+            writedlm(joinpath(incomplete, "y_grid.dat"), y)
+            for i in 1:2
+                writedlm(joinpath(incomplete, "nuDens_diag$i.dat"),
+                    hcat(x, real.(mats[:, :, i, i])))
+            end
+            @test_throws ArgumentError load_flavor_density_history(
+                incomplete; require_coherence=true, validate=false)
+        end
+    end
+
+    standard = standard_qke_history()
+    @test flavor_count(standard) == 3
+    @test size(standard.rho) == (500, 30, 3, 3)
+    @test qke_neff(standard) ≈ 3.043523644 rtol=2e-10
+    @test qke_neff(standard; method=:integral) ≈ qke_neff(standard) rtol=1e-9
+    # The stored Gauss--Laguerre weights and the generic quadgk+origin fallback
+    # are two independent integrations of the same Tr ϱ; on a real spectrum they
+    # must land on the same N_eff. Drop the weights to force the fallback path.
+    no_weights = FlavorDensityHistory(standard.x, standard.y, standard.z,
+        standard.w, standard.rho, standard.mass_occupation, standard.neff,
+        nothing, standard.source)
+    @test qke_neff(no_weights; method=:integral) ≈
+        qke_neff(standard; method=:integral) rtol=1e-4
+    mass_Neff = sum(1:3) do state
+        nu_ρ_integral(0.0, qke_distribution(standard, state; basis=:mass)) /
+            Cosmic.F_massless
+    end
+    @test mass_Neff ≈ qke_neff(standard) atol=6e-5
+end
+

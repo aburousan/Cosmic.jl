@@ -1,0 +1,1053 @@
+-- 30/07/2026 - h13:35:35
+-- 30/07/2026 - h13:35:35
+ [config] reading additional configuration from ini/explanatory.ini
+ [config] Writing to: output/...
+ [config] Configuring Gauss-Laguerre with Ny= 30 and y_max=  0.200000000E+02
+ [config] use Gauss-Laguerre, n= 121 and selecting the first  30 roots
+ [config] use Gauss-Laguerre, n= 310 and selecting the first 110 roots
+ [config] use Gauss-Laguerre, n= 336 and selecting the first  63 roots
+ [config] using 3 neutrinos, counting as  0.100E+01 0.100E+01 0.100E+01, of which they are steriles: F F F
+ [interactions] Initializing interpolation for electron mass corrections...
+ [interactions] values saved to file: interpolations/xi+1.00E-02_xf+3.50E+1_yl+1.00E-2_yu+2.00E+1_zl+9.00E-1_zu+1.50E+0_xz+3.22E-4/dme2_log_T_F.dat
+ [interactions] values saved to file: interpolations/xi+1.00E-02_xf+3.50E+1_yl+1.00E-2_yu+2.00E+1_zl+9.00E-1_zu+1.50E+0_xz+3.22E-4/dme2_nolog_T.dat
+ [interactions] ...done!
+ [cosmo] Initializing electrons...
+ [cosmo] values saved to file: interpolations/xi+1.00E-02_xf+3.50E+1_yl+1.00E-2_yu+2.00E+1_zl+9.00E-1_zu+1.50E+0_xz+3.22E-4/cosmo_electrons_T_T_F.dat
+ [cosmo] ...done!
+ [equations] Initializing interpolation for coefficients in dz/dx and dw/dx...
+ [equations] values saved to file: interpolations/xi+1.00E-02_xf+3.50E+1_yl+1.00E-2_yu+2.00E+1_zl+9.00E-1_zu+1.50E+0_xz+3.22E-4/ftqed_T_T.dat
+ [equations] ...done!
+ [zin] Computation of z_in started, x_in= 0.484E-03, x_end= 0.100E-01.                               
+ [zin] ended with z_in-1 = 0.113274345E-05.
+ [output] Opening new file output/y_grid.dat in unit  3978
+ [output] Opening new file output/fd.dat in unit  3154
+ [config] Read configuration from ini file: complete.
+ [output] Opening new file output/time.log in unit  8970
+ [output] Saving info at x=  0.100000000E-01
+ [output] Opening new file output/nuDens_diag1.dat in unit  8972
+ [output] Opening new file output/nuDens_diag2.dat in unit  8972
+ [output] Opening new file output/nuDens_diag3.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_12_re.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_12_im.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_13_re.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_13_im.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_23_re.dat in unit  8972
+ [output] Opening new file output/nuDens_nd_23_im.dat in unit  8972
+ [output] Opening new file output/nuDens_mass1.dat in unit  8972
+ [output] Opening new file output/nuDens_mass2.dat in unit  8972
+ [output] Opening new file output/nuDens_mass3.dat in unit  8972
+ [output] Opening new file output/energyDensity.dat in unit  8972
+ [output] Opening new file output/entropy.dat in unit  8972
+ [output] Opening new file output/numberDensity.dat in unit  8972
+ [output] Opening new file output/z.dat in unit  8972
+ [output] Opening new file output/Neff.dat in unit  8972
+ [output] Opening new file output/BBN.dat in unit  8972
+ [output] Opening new file output/rho_tot.dat in unit  8972
+ [output] Opening new file output/nuDens_diag1_BBN.dat in unit  8972
+ [output] Opening new file output/ens_header.dat in unit  8972
+ [output] Opening new file output/z_header.dat in unit  8972
+ [solver] Start DLSODA...x_start =  0.100000000E-01 - x_end =  0.101648820E-01
+ [output] Saving info at x=  0.101648820E-01
+ [solver] Start DLSODA...x_start =  0.101648820E-01 - x_end =  0.103324826E-01
+ [output] Saving info at x=  0.103324826E-01
+ [solver] Start DLSODA...x_start =  0.103324826E-01 - x_end =  0.105028466E-01
+ [output] Saving info at x=  0.105028466E-01
+ [solver] Start DLSODA...x_start =  0.105028466E-01 - x_end =  0.106760196E-01
+ [output] Saving info at x=  0.106760196E-01
+ [solver] Start DLSODA...x_start =  0.106760196E-01 - x_end =  0.108520479E-01
+ [output] Saving info at x=  0.108520479E-01
+ [solver] Start DLSODA...x_start =  0.108520479E-01 - x_end =  0.110309787E-01
+ [output] Saving info at x=  0.110309787E-01
+ [solver] Start DLSODA...x_start =  0.110309787E-01 - x_end =  0.112128596E-01
+ [output] Saving info at x=  0.112128596E-01
+ [solver] Start DLSODA...x_start =  0.112128596E-01 - x_end =  0.113977395E-01
+ [output] Saving info at x=  0.113977395E-01
+ [solver] Start DLSODA...x_start =  0.113977395E-01 - x_end =  0.115856677E-01
+ [output] Saving info at x=  0.115856677E-01
+ [solver] Start DLSODA...x_start =  0.115856677E-01 - x_end =  0.117766945E-01
+ [output] Saving info at x=  0.117766945E-01
+ [solver] Start DLSODA...x_start =  0.117766945E-01 - x_end =  0.119708709E-01
+ [output] Saving info at x=  0.119708709E-01
+ [solver] Start DLSODA...x_start =  0.119708709E-01 - x_end =  0.121682490E-01
+ [output] Saving info at x=  0.121682490E-01
+ [solver] Start DLSODA...x_start =  0.121682490E-01 - x_end =  0.123688815E-01
+ [output] Saving info at x=  0.123688815E-01
+ [solver] Start DLSODA...x_start =  0.123688815E-01 - x_end =  0.125728221E-01
+ [output] Saving info at x=  0.125728221E-01
+ [solver] Start DLSODA...x_start =  0.125728221E-01 - x_end =  0.127801253E-01
+ [output] Saving info at x=  0.127801253E-01
+ [solver] Start DLSODA...x_start =  0.127801253E-01 - x_end =  0.129908465E-01
+ [output] Saving info at x=  0.129908465E-01
+ [solver] Start DLSODA...x_start =  0.129908465E-01 - x_end =  0.132050422E-01
+ [output] Saving info at x=  0.132050422E-01
+ [solver] Start DLSODA...x_start =  0.132050422E-01 - x_end =  0.134227695E-01
+ [output] Saving info at x=  0.134227695E-01
+ [solver] Start DLSODA...x_start =  0.134227695E-01 - x_end =  0.136440868E-01
+ [output] Saving info at x=  0.136440868E-01
+ [solver] Start DLSODA...x_start =  0.136440868E-01 - x_end =  0.138690532E-01
+ [output] Saving info at x=  0.138690532E-01
+ [solver] Start DLSODA...x_start =  0.138690532E-01 - x_end =  0.140977289E-01
+ [output] Saving info at x=  0.140977289E-01
+ [solver] Start DLSODA...x_start =  0.140977289E-01 - x_end =  0.143301751E-01
+ [output] Saving info at x=  0.143301751E-01
+ [solver] Start DLSODA...x_start =  0.143301751E-01 - x_end =  0.145664539E-01
+ [output] Saving info at x=  0.145664539E-01
+ [solver] Start DLSODA...x_start =  0.145664539E-01 - x_end =  0.148066284E-01
+ [output] Saving info at x=  0.148066284E-01
+ [solver] Start DLSODA...x_start =  0.148066284E-01 - x_end =  0.150507631E-01
+ [output] Saving info at x=  0.150507631E-01
+ [solver] Start DLSODA...x_start =  0.150507631E-01 - x_end =  0.152989230E-01
+ [output] Saving info at x=  0.152989230E-01
+ [solver] Start DLSODA...x_start =  0.152989230E-01 - x_end =  0.155511747E-01
+ [output] Saving info at x=  0.155511747E-01
+ [solver] Start DLSODA...x_start =  0.155511747E-01 - x_end =  0.158075856E-01
+ [output] Saving info at x=  0.158075856E-01
+ [solver] Start DLSODA...x_start =  0.158075856E-01 - x_end =  0.160682242E-01
+ [output] Saving info at x=  0.160682242E-01
+ [solver] Start DLSODA...x_start =  0.160682242E-01 - x_end =  0.163331603E-01
+ [output] Saving info at x=  0.163331603E-01
+ [solver] Start DLSODA...x_start =  0.163331603E-01 - x_end =  0.166024646E-01
+ [output] Saving info at x=  0.166024646E-01
+ [solver] Start DLSODA...x_start =  0.166024646E-01 - x_end =  0.168762094E-01
+ [output] Saving info at x=  0.168762094E-01
+ [solver] Start DLSODA...x_start =  0.168762094E-01 - x_end =  0.171544677E-01
+ [output] Saving info at x=  0.171544677E-01
+ [solver] Start DLSODA...x_start =  0.171544677E-01 - x_end =  0.174373139E-01
+ [output] Saving info at x=  0.174373139E-01
+ [solver] Start DLSODA...x_start =  0.174373139E-01 - x_end =  0.177248238E-01
+ [output] Saving info at x=  0.177248238E-01
+ [solver] Start DLSODA...x_start =  0.177248238E-01 - x_end =  0.180170742E-01
+ [output] Saving info at x=  0.180170742E-01
+ [solver] Start DLSODA...x_start =  0.180170742E-01 - x_end =  0.183141433E-01
+ [output] Saving info at x=  0.183141433E-01
+ [solver] Start DLSODA...x_start =  0.183141433E-01 - x_end =  0.186161105E-01
+ [output] Saving info at x=  0.186161105E-01
+ [solver] Start DLSODA...x_start =  0.186161105E-01 - x_end =  0.189230567E-01
+ [output] Saving info at x=  0.189230567E-01
+ [solver] Start DLSODA...x_start =  0.189230567E-01 - x_end =  0.192350638E-01
+ [output] Saving info at x=  0.192350638E-01
+ [solver] Start DLSODA...x_start =  0.192350638E-01 - x_end =  0.195522153E-01
+ [output] Saving info at x=  0.195522153E-01
+ [solver] Start DLSODA...x_start =  0.195522153E-01 - x_end =  0.198745961E-01
+ [output] Saving info at x=  0.198745961E-01
+ [solver] Start DLSODA...x_start =  0.198745961E-01 - x_end =  0.202022924E-01
+ [output] Saving info at x=  0.202022924E-01
+ [solver] Start DLSODA...x_start =  0.202022924E-01 - x_end =  0.205353918E-01
+ [output] Saving info at x=  0.205353918E-01
+ [solver] Start DLSODA...x_start =  0.205353918E-01 - x_end =  0.208739834E-01
+ [output] Saving info at x=  0.208739834E-01
+ [solver] Start DLSODA...x_start =  0.208739834E-01 - x_end =  0.212181578E-01
+ [output] Saving info at x=  0.212181578E-01
+ [solver] Start DLSODA...x_start =  0.212181578E-01 - x_end =  0.215680070E-01
+ [output] Saving info at x=  0.215680070E-01
+ [solver] Start DLSODA...x_start =  0.215680070E-01 - x_end =  0.219236246E-01
+ [output] Saving info at x=  0.219236246E-01
+ [solver] Start DLSODA...x_start =  0.219236246E-01 - x_end =  0.222851057E-01
+ [output] Saving info at x=  0.222851057E-01
+ [solver] Start DLSODA...x_start =  0.222851057E-01 - x_end =  0.226525469E-01
+ [output] Saving info at x=  0.226525469E-01
+ [solver] Start DLSODA...x_start =  0.226525469E-01 - x_end =  0.230260466E-01
+ [output] Saving info at x=  0.230260466E-01
+ [solver] Start DLSODA...x_start =  0.230260466E-01 - x_end =  0.234057046E-01
+ [output] Saving info at x=  0.234057046E-01
+ [solver] Start DLSODA...x_start =  0.234057046E-01 - x_end =  0.237916225E-01
+ [output] Saving info at x=  0.237916225E-01
+ [solver] Start DLSODA...x_start =  0.237916225E-01 - x_end =  0.241839035E-01
+ [output] Saving info at x=  0.241839035E-01
+ [solver] Start DLSODA...x_start =  0.241839035E-01 - x_end =  0.245826525E-01
+ [output] Saving info at x=  0.245826525E-01
+ [solver] Start DLSODA...x_start =  0.245826525E-01 - x_end =  0.249879762E-01
+ [output] Saving info at x=  0.249879762E-01
+ [solver] Start DLSODA...x_start =  0.249879762E-01 - x_end =  0.253999829E-01
+ [output] Saving info at x=  0.253999829E-01
+ [solver] Start DLSODA...x_start =  0.253999829E-01 - x_end =  0.258187828E-01
+ [output] Saving info at x=  0.258187828E-01
+ [solver] Start DLSODA...x_start =  0.258187828E-01 - x_end =  0.262444881E-01
+ [output] Saving info at x=  0.262444881E-01
+ [solver] Start DLSODA...x_start =  0.262444881E-01 - x_end =  0.266772124E-01
+ [output] Saving info at x=  0.266772124E-01
+ [solver] Start DLSODA...x_start =  0.266772124E-01 - x_end =  0.271170715E-01
+ [output] Saving info at x=  0.271170715E-01
+ [solver] Start DLSODA...x_start =  0.271170715E-01 - x_end =  0.275641832E-01
+ [output] Saving info at x=  0.275641832E-01
+ [solver] Start DLSODA...x_start =  0.275641832E-01 - x_end =  0.280186669E-01
+ [output] Saving info at x=  0.280186669E-01
+ [solver] Start DLSODA...x_start =  0.280186669E-01 - x_end =  0.284806443E-01
+ [output] Saving info at x=  0.284806443E-01
+ [solver] Start DLSODA...x_start =  0.284806443E-01 - x_end =  0.289502388E-01
+ [output] Saving info at x=  0.289502388E-01
+ [solver] Start DLSODA...x_start =  0.289502388E-01 - x_end =  0.294275761E-01
+ [output] Saving info at x=  0.294275761E-01
+ [solver] Start DLSODA...x_start =  0.294275761E-01 - x_end =  0.299127838E-01
+ [output] Saving info at x=  0.299127838E-01
+ [solver] Start DLSODA...x_start =  0.299127838E-01 - x_end =  0.304059917E-01
+ [output] Saving info at x=  0.304059917E-01
+ [solver] Start DLSODA...x_start =  0.304059917E-01 - x_end =  0.309073317E-01
+ [output] Saving info at x=  0.309073317E-01
+ [solver] Start DLSODA...x_start =  0.309073317E-01 - x_end =  0.314169379E-01
+ [output] Saving info at x=  0.314169379E-01
+ [solver] Start DLSODA...x_start =  0.314169379E-01 - x_end =  0.319349466E-01
+ [output] Saving info at x=  0.319349466E-01
+ [solver] Start DLSODA...x_start =  0.319349466E-01 - x_end =  0.324614964E-01
+ [output] Saving info at x=  0.324614964E-01
+ [solver] Start DLSODA...x_start =  0.324614964E-01 - x_end =  0.329967280E-01
+ [output] Saving info at x=  0.329967280E-01
+ [solver] Start DLSODA...x_start =  0.329967280E-01 - x_end =  0.335407846E-01
+ [output] Saving info at x=  0.335407846E-01
+ [solver] Start DLSODA...x_start =  0.335407846E-01 - x_end =  0.340938117E-01
+ [output] Saving info at x=  0.340938117E-01
+ [solver] Start DLSODA...x_start =  0.340938117E-01 - x_end =  0.346559572E-01
+ [output] Saving info at x=  0.346559572E-01
+ [solver] Start DLSODA...x_start =  0.346559572E-01 - x_end =  0.352273715E-01
+ [output] Saving info at x=  0.352273715E-01
+ [solver] Start DLSODA...x_start =  0.352273715E-01 - x_end =  0.358082074E-01
+ [output] Saving info at x=  0.358082074E-01
+ [solver] Start DLSODA...x_start =  0.358082074E-01 - x_end =  0.363986202E-01
+ [output] Saving info at x=  0.363986202E-01
+ [solver] Start DLSODA...x_start =  0.363986202E-01 - x_end =  0.369987679E-01
+ [output] Saving info at x=  0.369987679E-01
+ [solver] Start DLSODA...x_start =  0.369987679E-01 - x_end =  0.376088109E-01
+ [output] Saving info at x=  0.376088109E-01
+ [solver] Start DLSODA...x_start =  0.376088109E-01 - x_end =  0.382289124E-01
+ [output] Saving info at x=  0.382289124E-01
+ [solver] Start DLSODA...x_start =  0.382289124E-01 - x_end =  0.388592383E-01
+ [output] Saving info at x=  0.388592383E-01
+ [solver] Start DLSODA...x_start =  0.388592383E-01 - x_end =  0.394999572E-01
+ [output] Saving info at x=  0.394999572E-01
+ [solver] Start DLSODA...x_start =  0.394999572E-01 - x_end =  0.401512403E-01
+ [output] Saving info at x=  0.401512403E-01
+ [solver] Start DLSODA...x_start =  0.401512403E-01 - x_end =  0.408132619E-01
+ [output] Saving info at x=  0.408132619E-01
+ [solver] Start DLSODA...x_start =  0.408132619E-01 - x_end =  0.414861991E-01
+ [output] Saving info at x=  0.414861991E-01
+ [solver] Start DLSODA...x_start =  0.414861991E-01 - x_end =  0.421702318E-01
+ [output] Saving info at x=  0.421702318E-01
+ [solver] Start DLSODA...x_start =  0.421702318E-01 - x_end =  0.428655429E-01
+ [output] Saving info at x=  0.428655429E-01
+ [solver] Start DLSODA...x_start =  0.428655429E-01 - x_end =  0.435723185E-01
+ [output] Saving info at x=  0.435723185E-01
+ [solver] Start DLSODA...x_start =  0.435723185E-01 - x_end =  0.442907475E-01
+ [output] Saving info at x=  0.442907475E-01
+ [solver] Start DLSODA...x_start =  0.442907475E-01 - x_end =  0.450210221E-01
+ [output] Saving info at x=  0.450210221E-01
+ [solver] Start DLSODA...x_start =  0.450210221E-01 - x_end =  0.457633377E-01
+ [output] Saving info at x=  0.457633377E-01
+ [solver] Start DLSODA...x_start =  0.457633377E-01 - x_end =  0.465178927E-01
+ [output] Saving info at x=  0.465178927E-01
+ [solver] Start DLSODA...x_start =  0.465178927E-01 - x_end =  0.472848889E-01
+ [output] Saving info at x=  0.472848889E-01
+ [solver] Start DLSODA...x_start =  0.472848889E-01 - x_end =  0.480645316E-01
+ [output] Saving info at x=  0.480645316E-01
+ [solver] Start DLSODA...x_start =  0.480645316E-01 - x_end =  0.488570291E-01
+ [output] Saving info at x=  0.488570291E-01
+ [solver] Start DLSODA...x_start =  0.488570291E-01 - x_end =  0.496625935E-01
+ [output] Saving info at x=  0.496625935E-01
+ [solver] Start DLSODA...x_start =  0.496625935E-01 - x_end =  0.504814402E-01
+ [output] Saving info at x=  0.504814402E-01
+ [solver] Start DLSODA...x_start =  0.504814402E-01 - x_end =  0.513137882E-01
+ [output] Saving info at x=  0.513137882E-01
+ [solver] Start DLSODA...x_start =  0.513137882E-01 - x_end =  0.521598601E-01
+ [output] Saving info at x=  0.521598601E-01
+ [solver] Start DLSODA...x_start =  0.521598601E-01 - x_end =  0.530198822E-01
+ [output] Saving info at x=  0.530198822E-01
+ [solver] Start DLSODA...x_start =  0.530198822E-01 - x_end =  0.538940845E-01
+ [output] Saving info at x=  0.538940845E-01
+ [solver] Start DLSODA...x_start =  0.538940845E-01 - x_end =  0.547827009E-01
+ [output] Saving info at x=  0.547827009E-01
+ [solver] Start DLSODA...x_start =  0.547827009E-01 - x_end =  0.556859689E-01
+ [output] Saving info at x=  0.556859689E-01
+ [solver] Start DLSODA...x_start =  0.556859689E-01 - x_end =  0.566041303E-01
+ [output] Saving info at x=  0.566041303E-01
+ [solver] Start DLSODA...x_start =  0.566041303E-01 - x_end =  0.575374304E-01
+ [output] Saving info at x=  0.575374304E-01
+ [solver] Start DLSODA...x_start =  0.575374304E-01 - x_end =  0.584861189E-01
+ [output] Saving info at x=  0.584861189E-01
+ [solver] Start DLSODA...x_start =  0.584861189E-01 - x_end =  0.594504497E-01
+ [output] Saving info at x=  0.594504497E-01
+ [solver] Start DLSODA...x_start =  0.594504497E-01 - x_end =  0.604306805E-01
+ [output] Saving info at x=  0.604306805E-01
+ [solver] Start DLSODA...x_start =  0.604306805E-01 - x_end =  0.614270735E-01
+ [output] Saving info at x=  0.614270735E-01
+ [solver] Start DLSODA...x_start =  0.614270735E-01 - x_end =  0.624398953E-01
+ [output] Saving info at x=  0.624398953E-01
+ [solver] Start DLSODA...x_start =  0.624398953E-01 - x_end =  0.634694167E-01
+ [output] Saving info at x=  0.634694167E-01
+ [solver] Start DLSODA...x_start =  0.634694167E-01 - x_end =  0.645159130E-01
+ [output] Saving info at x=  0.645159130E-01
+ [solver] Start DLSODA...x_start =  0.645159130E-01 - x_end =  0.655796642E-01
+ [output] Saving info at x=  0.655796642E-01
+ [solver] Start DLSODA...x_start =  0.655796642E-01 - x_end =  0.666609547E-01
+ [output] Saving info at x=  0.666609547E-01
+ [solver] Start DLSODA...x_start =  0.666609547E-01 - x_end =  0.677600738E-01
+ [output] Saving info at x=  0.677600738E-01
+ [solver] Start DLSODA...x_start =  0.677600738E-01 - x_end =  0.688773153E-01
+ [output] Saving info at x=  0.688773153E-01
+ [solver] Start DLSODA...x_start =  0.688773153E-01 - x_end =  0.700129781E-01
+ [output] Saving info at x=  0.700129781E-01
+ [solver] Start DLSODA...x_start =  0.700129781E-01 - x_end =  0.711673660E-01
+ [output] Saving info at x=  0.711673660E-01
+ [solver] Start DLSODA...x_start =  0.711673660E-01 - x_end =  0.723407877E-01
+ [output] Saving info at x=  0.723407877E-01
+ [solver] Start DLSODA...x_start =  0.723407877E-01 - x_end =  0.735335569E-01
+ [output] Saving info at x=  0.735335569E-01
+ [solver] Start DLSODA...x_start =  0.735335569E-01 - x_end =  0.747459928E-01
+ [output] Saving info at x=  0.747459928E-01
+ [solver] Start DLSODA...x_start =  0.747459928E-01 - x_end =  0.759784196E-01
+ [output] Saving info at x=  0.759784196E-01
+ [solver] Start DLSODA...x_start =  0.759784196E-01 - x_end =  0.772311668E-01
+ [output] Saving info at x=  0.772311668E-01
+ [solver] Start DLSODA...x_start =  0.772311668E-01 - x_end =  0.785045696E-01
+ [output] Saving info at x=  0.785045696E-01
+ [solver] Start DLSODA...x_start =  0.785045696E-01 - x_end =  0.797989685E-01
+ [output] Saving info at x=  0.797989685E-01
+ [solver] Start DLSODA...x_start =  0.797989685E-01 - x_end =  0.811147098E-01
+ [output] Saving info at x=  0.811147098E-01
+ [solver] Start DLSODA...x_start =  0.811147098E-01 - x_end =  0.824521452E-01
+ [output] Saving info at x=  0.824521452E-01
+ [solver] Start DLSODA...x_start =  0.824521452E-01 - x_end =  0.838116325E-01
+ [output] Saving info at x=  0.838116325E-01
+ [solver] Start DLSODA...x_start =  0.838116325E-01 - x_end =  0.851935353E-01
+ [output] Saving info at x=  0.851935353E-01
+ [solver] Start DLSODA...x_start =  0.851935353E-01 - x_end =  0.865982233E-01
+ [output] Saving info at x=  0.865982233E-01
+ [solver] Start DLSODA...x_start =  0.865982233E-01 - x_end =  0.880260719E-01
+ [output] Saving info at x=  0.880260719E-01
+ [solver] Start DLSODA...x_start =  0.880260719E-01 - x_end =  0.894774633E-01
+ [output] Saving info at x=  0.894774633E-01
+ [solver] Start DLSODA...x_start =  0.894774633E-01 - x_end =  0.909527855E-01
+ [output] Saving info at x=  0.909527855E-01
+ [solver] Start DLSODA...x_start =  0.909527855E-01 - x_end =  0.924524330E-01
+ [output] Saving info at x=  0.924524330E-01
+ [solver] Start DLSODA...x_start =  0.924524330E-01 - x_end =  0.939768071E-01
+ [output] Saving info at x=  0.939768071E-01
+ [solver] Start DLSODA...x_start =  0.939768071E-01 - x_end =  0.955263153E-01
+ [output] Saving info at x=  0.955263153E-01
+ [solver] Start DLSODA...x_start =  0.955263153E-01 - x_end =  0.971013722E-01
+ [output] Saving info at x=  0.971013722E-01
+ [solver] Start DLSODA...x_start =  0.971013722E-01 - x_end =  0.987023989E-01
+ [output] Saving info at x=  0.987023989E-01
+ [solver] Start DLSODA...x_start =  0.987023989E-01 - x_end =  0.100329824E+00
+ [output] Saving info at x=  0.100329824E+00
+ [solver] Start DLSODA...x_start =  0.100329824E+00 - x_end =  0.101984082E+00
+ [output] Saving info at x=  0.101984082E+00
+ [solver] Start DLSODA...x_start =  0.101984082E+00 - x_end =  0.103665615E+00
+ [output] Saving info at x=  0.103665615E+00
+ [solver] Start DLSODA...x_start =  0.103665615E+00 - x_end =  0.105374875E+00
+ [output] Saving info at x=  0.105374875E+00
+ [solver] Start DLSODA...x_start =  0.105374875E+00 - x_end =  0.107112316E+00
+ [output] Saving info at x=  0.107112316E+00
+ [solver] Start DLSODA...x_start =  0.107112316E+00 - x_end =  0.108878406E+00
+ [output] Saving info at x=  0.108878406E+00
+ [solver] Start DLSODA...x_start =  0.108878406E+00 - x_end =  0.110673614E+00
+ [output] Saving info at x=  0.110673614E+00
+ [solver] Start DLSODA...x_start =  0.110673614E+00 - x_end =  0.112498423E+00
+ [output] Saving info at x=  0.112498423E+00
+ [solver] Start DLSODA...x_start =  0.112498423E+00 - x_end =  0.114353319E+00
+ [output] Saving info at x=  0.114353319E+00
+ [solver] Start DLSODA...x_start =  0.114353319E+00 - x_end =  0.116238799E+00
+ [output] Saving info at x=  0.116238799E+00
+ [solver] Start DLSODA...x_start =  0.116238799E+00 - x_end =  0.118155368E+00
+ [output] Saving info at x=  0.118155368E+00
+ [solver] Start DLSODA...x_start =  0.118155368E+00 - x_end =  0.120103537E+00
+ [output] Saving info at x=  0.120103537E+00
+ [solver] Start DLSODA...x_start =  0.120103537E+00 - x_end =  0.122083828E+00
+ [output] Saving info at x=  0.122083828E+00
+ [solver] Start DLSODA...x_start =  0.122083828E+00 - x_end =  0.124096770E+00
+ [output] Saving info at x=  0.124096770E+00
+ [solver] Start DLSODA...x_start =  0.124096770E+00 - x_end =  0.126142902E+00
+ [output] Saving info at x=  0.126142902E+00
+ [solver] Start DLSODA...x_start =  0.126142902E+00 - x_end =  0.128222772E+00
+ [output] Saving info at x=  0.128222772E+00
+ [solver] Start DLSODA...x_start =  0.128222772E+00 - x_end =  0.130336934E+00
+ [output] Saving info at x=  0.130336934E+00
+ [solver] Start DLSODA...x_start =  0.130336934E+00 - x_end =  0.132485955E+00
+ [output] Saving info at x=  0.132485955E+00
+ [solver] Start DLSODA...x_start =  0.132485955E+00 - x_end =  0.134670410E+00
+ [output] Saving info at x=  0.134670410E+00
+ [solver] Start DLSODA...x_start =  0.134670410E+00 - x_end =  0.136890882E+00
+ [output] Saving info at x=  0.136890882E+00
+ [solver] Start DLSODA...x_start =  0.136890882E+00 - x_end =  0.139147967E+00
+ [output] Saving info at x=  0.139147967E+00
+ [solver] Start DLSODA...x_start =  0.139147967E+00 - x_end =  0.141442266E+00
+ [output] Saving info at x=  0.141442266E+00
+ [solver] Start DLSODA...x_start =  0.141442266E+00 - x_end =  0.143774394E+00
+ [output] Saving info at x=  0.143774394E+00
+ [solver] Start DLSODA...x_start =  0.143774394E+00 - x_end =  0.146144975E+00
+ [output] Saving info at x=  0.146144975E+00
+ [solver] Start DLSODA...x_start =  0.146144975E+00 - x_end =  0.148554642E+00
+ [output] Saving info at x=  0.148554642E+00
+ [solver] Start DLSODA...x_start =  0.148554642E+00 - x_end =  0.151004040E+00
+ [output] Saving info at x=  0.151004040E+00
+ [solver] Start DLSODA...x_start =  0.151004040E+00 - x_end =  0.153493825E+00
+ [output] Saving info at x=  0.153493825E+00
+ [solver] Start DLSODA...x_start =  0.153493825E+00 - x_end =  0.156024662E+00
+ [output] Saving info at x=  0.156024662E+00
+ [solver] Start DLSODA...x_start =  0.156024662E+00 - x_end =  0.158597227E+00
+ [output] Saving info at x=  0.158597227E+00
+ [solver] Start DLSODA...x_start =  0.158597227E+00 - x_end =  0.161212210E+00
+ [output] Saving info at x=  0.161212210E+00
+ [solver] Start DLSODA...x_start =  0.161212210E+00 - x_end =  0.163870309E+00
+ [output] Saving info at x=  0.163870309E+00
+ [solver] Start DLSODA...x_start =  0.163870309E+00 - x_end =  0.166572235E+00
+ [output] Saving info at x=  0.166572235E+00
+ [solver] Start DLSODA...x_start =  0.166572235E+00 - x_end =  0.169318711E+00
+ [output] Saving info at x=  0.169318711E+00
+ [solver] Start DLSODA...x_start =  0.169318711E+00 - x_end =  0.172110471E+00
+ [output] Saving info at x=  0.172110471E+00
+ [solver] Start DLSODA...x_start =  0.172110471E+00 - x_end =  0.174948263E+00
+ [output] Saving info at x=  0.174948263E+00
+ [solver] Start DLSODA...x_start =  0.174948263E+00 - x_end =  0.177832845E+00
+ [output] Saving info at x=  0.177832845E+00
+ [solver] Start DLSODA...x_start =  0.177832845E+00 - x_end =  0.180764988E+00
+ [output] Saving info at x=  0.180764988E+00
+ [solver] Start DLSODA...x_start =  0.180764988E+00 - x_end =  0.183745477E+00
+ [output] Saving info at x=  0.183745477E+00
+ [solver] Start DLSODA...x_start =  0.183745477E+00 - x_end =  0.186775109E+00
+ [output] Saving info at x=  0.186775109E+00
+ [solver] Start DLSODA...x_start =  0.186775109E+00 - x_end =  0.189854694E+00
+ [output] Saving info at x=  0.189854694E+00
+ [solver] Start DLSODA...x_start =  0.189854694E+00 - x_end =  0.192985056E+00
+ [output] Saving info at x=  0.192985056E+00
+ [solver] Start DLSODA...x_start =  0.192985056E+00 - x_end =  0.196167032E+00
+ [output] Saving info at x=  0.196167032E+00
+ [solver] Start DLSODA...x_start =  0.196167032E+00 - x_end =  0.199401472E+00
+ [output] Saving info at x=  0.199401472E+00
+ [solver] Start DLSODA...x_start =  0.199401472E+00 - x_end =  0.202689243E+00
+ [output] Saving info at x=  0.202689243E+00
+ [solver] Start DLSODA...x_start =  0.202689243E+00 - x_end =  0.206031224E+00
+ [output] Saving info at x=  0.206031224E+00
+ [solver] Start DLSODA...x_start =  0.206031224E+00 - x_end =  0.209428308E+00
+ [output] Saving info at x=  0.209428308E+00
+ [solver] Start DLSODA...x_start =  0.209428308E+00 - x_end =  0.212881403E+00
+ [output] Saving info at x=  0.212881403E+00
+ [solver] Start DLSODA...x_start =  0.212881403E+00 - x_end =  0.216391434E+00
+ [output] Saving info at x=  0.216391434E+00
+ [solver] Start DLSODA...x_start =  0.216391434E+00 - x_end =  0.219959339E+00
+ [output] Saving info at x=  0.219959339E+00
+ [solver] Start DLSODA...x_start =  0.219959339E+00 - x_end =  0.223586072E+00
+ [output] Saving info at x=  0.223586072E+00
+ [solver] Start DLSODA...x_start =  0.223586072E+00 - x_end =  0.227272604E+00
+ [output] Saving info at x=  0.227272604E+00
+ [solver] Start DLSODA...x_start =  0.227272604E+00 - x_end =  0.231019919E+00
+ [output] Saving info at x=  0.231019919E+00
+ [solver] Start DLSODA...x_start =  0.231019919E+00 - x_end =  0.234829022E+00
+ [output] Saving info at x=  0.234829022E+00
+ [solver] Start DLSODA...x_start =  0.234829022E+00 - x_end =  0.238700929E+00
+ [output] Saving info at x=  0.238700929E+00
+ [solver] Start DLSODA...x_start =  0.238700929E+00 - x_end =  0.242636677E+00
+ [output] Saving info at x=  0.242636677E+00
+ [solver] Start DLSODA...x_start =  0.242636677E+00 - x_end =  0.246637319E+00
+ [output] Saving info at x=  0.246637319E+00
+ [solver] Start DLSODA...x_start =  0.246637319E+00 - x_end =  0.250703924E+00
+ [output] Saving info at x=  0.250703924E+00
+ [solver] Start DLSODA...x_start =  0.250703924E+00 - x_end =  0.254837580E+00
+ [output] Saving info at x=  0.254837580E+00
+ [solver] Start DLSODA...x_start =  0.254837580E+00 - x_end =  0.259039393E+00
+ [output] Saving info at x=  0.259039393E+00
+ [solver] Start DLSODA...x_start =  0.259039393E+00 - x_end =  0.263310486E+00
+ [output] Saving info at x=  0.263310486E+00
+ [solver] Start DLSODA...x_start =  0.263310486E+00 - x_end =  0.267652001E+00
+ [output] Saving info at x=  0.267652001E+00
+ [solver] Start DLSODA...x_start =  0.267652001E+00 - x_end =  0.272065100E+00
+ [output] Saving info at x=  0.272065100E+00
+ [solver] Start DLSODA...x_start =  0.272065100E+00 - x_end =  0.276550964E+00
+ [output] Saving info at x=  0.276550964E+00
+ [solver] Start DLSODA...x_start =  0.276550964E+00 - x_end =  0.281110791E+00
+ [output] Saving info at x=  0.281110791E+00
+ [solver] Start DLSODA...x_start =  0.281110791E+00 - x_end =  0.285745801E+00
+ [output] Saving info at x=  0.285745801E+00
+ [solver] Start DLSODA...x_start =  0.285745801E+00 - x_end =  0.290457235E+00
+ [output] Saving info at x=  0.290457235E+00
+ [solver] Start DLSODA...x_start =  0.290457235E+00 - x_end =  0.295246351E+00
+ [output] Saving info at x=  0.295246351E+00
+ [solver] Start DLSODA...x_start =  0.295246351E+00 - x_end =  0.300114432E+00
+ [output] Saving info at x=  0.300114432E+00
+ [solver] Start DLSODA...x_start =  0.300114432E+00 - x_end =  0.305062778E+00
+ [output] Saving info at x=  0.305062778E+00
+ [solver] Start DLSODA...x_start =  0.305062778E+00 - x_end =  0.310092714E+00
+ [output] Saving info at x=  0.310092714E+00
+ [solver] Start DLSODA...x_start =  0.310092714E+00 - x_end =  0.315205584E+00
+ [output] Saving info at x=  0.315205584E+00
+ [solver] Start DLSODA...x_start =  0.315205584E+00 - x_end =  0.320402756E+00
+ [output] Saving info at x=  0.320402756E+00
+ [solver] Start DLSODA...x_start =  0.320402756E+00 - x_end =  0.325685620E+00
+ [output] Saving info at x=  0.325685620E+00
+ [solver] Start DLSODA...x_start =  0.325685620E+00 - x_end =  0.331055589E+00
+ [output] Saving info at x=  0.331055589E+00
+ [solver] Start DLSODA...x_start =  0.331055589E+00 - x_end =  0.336514100E+00
+ [output] Saving info at x=  0.336514100E+00
+ [solver] Start DLSODA...x_start =  0.336514100E+00 - x_end =  0.342062611E+00
+ [output] Saving info at x=  0.342062611E+00
+ [solver] Start DLSODA...x_start =  0.342062611E+00 - x_end =  0.347702607E+00
+ [output] Saving info at x=  0.347702607E+00
+ [solver] Start DLSODA...x_start =  0.347702607E+00 - x_end =  0.353435597E+00
+ [output] Saving info at x=  0.353435597E+00
+ [solver] Start DLSODA...x_start =  0.353435597E+00 - x_end =  0.359263113E+00
+ [output] Saving info at x=  0.359263113E+00
+ [solver] Start DLSODA...x_start =  0.359263113E+00 - x_end =  0.365186714E+00
+ [output] Saving info at x=  0.365186714E+00
+ [solver] Start DLSODA...x_start =  0.365186714E+00 - x_end =  0.371207985E+00
+ [output] Saving info at x=  0.371207985E+00
+ [solver] Start DLSODA...x_start =  0.371207985E+00 - x_end =  0.377328536E+00
+ [output] Saving info at x=  0.377328536E+00
+ [solver] Start DLSODA...x_start =  0.377328536E+00 - x_end =  0.383550004E+00
+ [output] Saving info at x=  0.383550004E+00
+ [solver] Start DLSODA...x_start =  0.383550004E+00 - x_end =  0.389874053E+00
+ [output] Saving info at x=  0.389874053E+00
+ [solver] Start DLSODA...x_start =  0.389874053E+00 - x_end =  0.396302373E+00
+ [output] Saving info at x=  0.396302373E+00
+ [solver] Start DLSODA...x_start =  0.396302373E+00 - x_end =  0.402836686E+00
+ [output] Saving info at x=  0.402836686E+00
+ [solver] Start DLSODA...x_start =  0.402836686E+00 - x_end =  0.409478737E+00
+ [output] Saving info at x=  0.409478737E+00
+ [solver] Start DLSODA...x_start =  0.409478737E+00 - x_end =  0.416230303E+00
+ [output] Saving info at x=  0.416230303E+00
+ [solver] Start DLSODA...x_start =  0.416230303E+00 - x_end =  0.423093191E+00
+ [output] Saving info at x=  0.423093191E+00
+ [solver] Start DLSODA...x_start =  0.423093191E+00 - x_end =  0.430069236E+00
+ [output] Saving info at x=  0.430069236E+00
+ [solver] Start DLSODA...x_start =  0.430069236E+00 - x_end =  0.437160303E+00
+ [output] Saving info at x=  0.437160303E+00
+ [solver] Start DLSODA...x_start =  0.437160303E+00 - x_end =  0.444368288E+00
+ [output] Saving info at x=  0.444368288E+00
+ [solver] Start DLSODA...x_start =  0.444368288E+00 - x_end =  0.451695121E+00
+ [output] Saving info at x=  0.451695121E+00
+ [solver] Start DLSODA...x_start =  0.451695121E+00 - x_end =  0.459142760E+00
+ [output] Saving info at x=  0.459142760E+00
+ [solver] Start DLSODA...x_start =  0.459142760E+00 - x_end =  0.466713197E+00
+ [output] Saving info at x=  0.466713197E+00
+ [solver] Start DLSODA...x_start =  0.466713197E+00 - x_end =  0.474408456E+00
+ [output] Saving info at x=  0.474408456E+00
+ [solver] Start DLSODA...x_start =  0.474408456E+00 - x_end =  0.482230597E+00
+ [output] Saving info at x=  0.482230597E+00
+ [solver] Start DLSODA...x_start =  0.482230597E+00 - x_end =  0.490181711E+00
+ [output] Saving info at x=  0.490181711E+00
+ [solver] Start DLSODA...x_start =  0.490181711E+00 - x_end =  0.498263924E+00
+ [output] Saving info at x=  0.498263924E+00
+ [solver] Start DLSODA...x_start =  0.498263924E+00 - x_end =  0.506479399E+00
+ [output] Saving info at x=  0.506479399E+00
+ [solver] Start DLSODA...x_start =  0.506479399E+00 - x_end =  0.514830331E+00
+ [output] Saving info at x=  0.514830331E+00
+ [solver] Start DLSODA...x_start =  0.514830331E+00 - x_end =  0.523318956E+00
+ [output] Saving info at x=  0.523318956E+00
+ [solver] Start DLSODA...x_start =  0.523318956E+00 - x_end =  0.531947543E+00
+ [output] Saving info at x=  0.531947543E+00
+ [solver] Start DLSODA...x_start =  0.531947543E+00 - x_end =  0.540718399E+00
+ [output] Saving info at x=  0.540718399E+00
+ [solver] Start DLSODA...x_start =  0.540718399E+00 - x_end =  0.549633872E+00
+ [output] Saving info at x=  0.549633872E+00
+ [solver] Start DLSODA...x_start =  0.549633872E+00 - x_end =  0.558696344E+00
+ [output] Saving info at x=  0.558696344E+00
+ [solver] Start DLSODA...x_start =  0.558696344E+00 - x_end =  0.567908240E+00
+ [output] Saving info at x=  0.567908240E+00
+ [solver] Start DLSODA...x_start =  0.567908240E+00 - x_end =  0.577272024E+00
+ [output] Saving info at x=  0.577272024E+00
+ [solver] Start DLSODA...x_start =  0.577272024E+00 - x_end =  0.586790200E+00
+ [output] Saving info at x=  0.586790200E+00
+ [solver] Start DLSODA...x_start =  0.586790200E+00 - x_end =  0.596465313E+00
+ [output] Saving info at x=  0.596465313E+00
+ [solver] Start DLSODA...x_start =  0.596465313E+00 - x_end =  0.606299951E+00
+ [output] Saving info at x=  0.606299951E+00
+ [solver] Start DLSODA...x_start =  0.606299951E+00 - x_end =  0.616296745E+00
+ [output] Saving info at x=  0.616296745E+00
+ [solver] Start DLSODA...x_start =  0.616296745E+00 - x_end =  0.626458368E+00
+ [output] Saving info at x=  0.626458368E+00
+ [solver] Start DLSODA...x_start =  0.626458368E+00 - x_end =  0.636787538E+00
+ [output] Saving info at x=  0.636787538E+00
+ [solver] Start DLSODA...x_start =  0.636787538E+00 - x_end =  0.647287017E+00
+ [output] Saving info at x=  0.647287017E+00
+ [solver] Start DLSODA...x_start =  0.647287017E+00 - x_end =  0.657959614E+00
+ [output] Saving info at x=  0.657959614E+00
+ [solver] Start DLSODA...x_start =  0.657959614E+00 - x_end =  0.668808183E+00
+ [output] Saving info at x=  0.668808183E+00
+ [solver] Start DLSODA...x_start =  0.668808183E+00 - x_end =  0.679835625E+00
+ [output] Saving info at x=  0.679835625E+00
+ [solver] Start DLSODA...x_start =  0.679835625E+00 - x_end =  0.691044889E+00
+ [output] Saving info at x=  0.691044889E+00
+ [solver] Start DLSODA...x_start =  0.691044889E+00 - x_end =  0.702438975E+00
+ [output] Saving info at x=  0.702438975E+00
+ [solver] Start DLSODA...x_start =  0.702438975E+00 - x_end =  0.714020928E+00
+ [output] Saving info at x=  0.714020928E+00
+ [solver] Start DLSODA...x_start =  0.714020928E+00 - x_end =  0.725793847E+00
+ [output] Saving info at x=  0.725793847E+00
+ [solver] Start DLSODA...x_start =  0.725793847E+00 - x_end =  0.737760879E+00
+ [output] Saving info at x=  0.737760879E+00
+ [solver] Start DLSODA...x_start =  0.737760879E+00 - x_end =  0.749925227E+00
+ [output] Saving info at x=  0.749925227E+00
+ [solver] Start DLSODA...x_start =  0.749925227E+00 - x_end =  0.762290143E+00
+ [output] Saving info at x=  0.762290143E+00
+ [solver] Start DLSODA...x_start =  0.762290143E+00 - x_end =  0.774858934E+00
+ [output] Saving info at x=  0.774858934E+00
+ [solver] Start DLSODA...x_start =  0.774858934E+00 - x_end =  0.787634962E+00
+ [output] Saving info at x=  0.787634962E+00
+ [solver] Start DLSODA...x_start =  0.787634962E+00 - x_end =  0.800621644E+00
+ [output] Saving info at x=  0.800621644E+00
+ [solver] Start DLSODA...x_start =  0.800621644E+00 - x_end =  0.813822452E+00
+ [output] Saving info at x=  0.813822452E+00
+ [solver] Start DLSODA...x_start =  0.813822452E+00 - x_end =  0.827240918E+00
+ [output] Saving info at x=  0.827240918E+00
+ [solver] Start DLSODA...x_start =  0.827240918E+00 - x_end =  0.840880631E+00
+ [output] Saving info at x=  0.840880631E+00
+ [solver] Start DLSODA...x_start =  0.840880631E+00 - x_end =  0.854745237E+00
+ [output] Saving info at x=  0.854745237E+00
+ [solver] Start DLSODA...x_start =  0.854745237E+00 - x_end =  0.868838446E+00
+ [output] Saving info at x=  0.868838446E+00
+ [solver] Start DLSODA...x_start =  0.868838446E+00 - x_end =  0.883164027E+00
+ [output] Saving info at x=  0.883164027E+00
+ [solver] Start DLSODA...x_start =  0.883164027E+00 - x_end =  0.897725811E+00
+ [output] Saving info at x=  0.897725811E+00
+ [solver] Start DLSODA...x_start =  0.897725811E+00 - x_end =  0.912527692E+00
+ [output] Saving info at x=  0.912527692E+00
+ [solver] Start DLSODA...x_start =  0.912527692E+00 - x_end =  0.927573630E+00
+ [output] Saving info at x=  0.927573630E+00
+ [solver] Start DLSODA...x_start =  0.927573630E+00 - x_end =  0.942867648E+00
+ [output] Saving info at x=  0.942867648E+00
+ [solver] Start DLSODA...x_start =  0.942867648E+00 - x_end =  0.958413836E+00
+ [output] Saving info at x=  0.958413836E+00
+ [solver] Start DLSODA...x_start =  0.958413836E+00 - x_end =  0.974216354E+00
+ [output] Saving info at x=  0.974216354E+00
+ [solver] Start DLSODA...x_start =  0.974216354E+00 - x_end =  0.990279426E+00
+ [output] Saving info at x=  0.990279426E+00
+ [solver] Start DLSODA...x_start =  0.990279426E+00 - x_end =  0.100660735E+01
+ [output] Saving info at x=  0.100660735E+01
+ [solver] Start DLSODA...x_start =  0.100660735E+01 - x_end =  0.102320449E+01
+ [output] Saving info at x=  0.102320449E+01
+ [solver] Start DLSODA...x_start =  0.102320449E+01 - x_end =  0.104007529E+01
+ [output] Saving info at x=  0.104007529E+01
+ [solver] Start DLSODA...x_start =  0.104007529E+01 - x_end =  0.105722426E+01
+ [output] Saving info at x=  0.105722426E+01
+ [solver] Start DLSODA...x_start =  0.105722426E+01 - x_end =  0.107465598E+01
+ [output] Saving info at x=  0.107465598E+01
+ [solver] Start DLSODA...x_start =  0.107465598E+01 - x_end =  0.109237512E+01
+ [output] Saving info at x=  0.109237512E+01
+ [solver] Start DLSODA...x_start =  0.109237512E+01 - x_end =  0.111038642E+01
+ [output] Saving info at x=  0.111038642E+01
+ [solver] Start DLSODA...x_start =  0.111038642E+01 - x_end =  0.112869469E+01
+ [output] Saving info at x=  0.112869469E+01
+ [solver] Start DLSODA...x_start =  0.112869469E+01 - x_end =  0.114730483E+01
+ [output] Saving info at x=  0.114730483E+01
+ [solver] Start DLSODA...x_start =  0.114730483E+01 - x_end =  0.116622182E+01
+ [output] Saving info at x=  0.116622182E+01
+ [solver] Start DLSODA...x_start =  0.116622182E+01 - x_end =  0.118545072E+01
+ [output] Saving info at x=  0.118545072E+01
+ [solver] Start DLSODA...x_start =  0.118545072E+01 - x_end =  0.120499667E+01
+ [output] Saving info at x=  0.120499667E+01
+ [solver] Start DLSODA...x_start =  0.120499667E+01 - x_end =  0.122486489E+01
+ [output] Saving info at x=  0.122486489E+01
+ [solver] Start DLSODA...x_start =  0.122486489E+01 - x_end =  0.124506071E+01
+ [output] Saving info at x=  0.124506071E+01
+ [solver] Start DLSODA...x_start =  0.124506071E+01 - x_end =  0.126558951E+01
+ [output] Saving info at x=  0.126558951E+01
+ [solver] Start DLSODA...x_start =  0.126558951E+01 - x_end =  0.128645681E+01
+ [output] Saving info at x=  0.128645681E+01
+ [solver] Start DLSODA...x_start =  0.128645681E+01 - x_end =  0.130766816E+01
+ [output] Saving info at x=  0.130766816E+01
+ [solver] Start DLSODA...x_start =  0.130766816E+01 - x_end =  0.132922925E+01
+ [output] Saving info at x=  0.132922925E+01
+ [solver] Start DLSODA...x_start =  0.132922925E+01 - x_end =  0.135114585E+01
+ [output] Saving info at x=  0.135114585E+01
+ [solver] Start DLSODA...x_start =  0.135114585E+01 - x_end =  0.137342381E+01
+ [output] Saving info at x=  0.137342381E+01
+ [solver] Start DLSODA...x_start =  0.137342381E+01 - x_end =  0.139606909E+01
+ [output] Saving info at x=  0.139606909E+01
+ [solver] Start DLSODA...x_start =  0.139606909E+01 - x_end =  0.141908776E+01
+ [output] Saving info at x=  0.141908776E+01
+ [solver] Start DLSODA...x_start =  0.141908776E+01 - x_end =  0.144248596E+01
+ [output] Saving info at x=  0.144248596E+01
+ [solver] Start DLSODA...x_start =  0.144248596E+01 - x_end =  0.146626995E+01
+ [output] Saving info at x=  0.146626995E+01
+ [solver] Start DLSODA...x_start =  0.146626995E+01 - x_end =  0.149044610E+01
+ [output] Saving info at x=  0.149044610E+01
+ [solver] Start DLSODA...x_start =  0.149044610E+01 - x_end =  0.151502087E+01
+ [output] Saving info at x=  0.151502087E+01
+ [solver] Start DLSODA...x_start =  0.151502087E+01 - x_end =  0.154000084E+01
+ [output] Saving info at x=  0.154000084E+01
+ [solver] Start DLSODA...x_start =  0.154000084E+01 - x_end =  0.156539268E+01
+ [output] Saving info at x=  0.156539268E+01
+ [solver] Start DLSODA...x_start =  0.156539268E+01 - x_end =  0.159120318E+01
+ [output] Saving info at x=  0.159120318E+01
+ [solver] Start DLSODA...x_start =  0.159120318E+01 - x_end =  0.161743926E+01
+ [output] Saving info at x=  0.161743926E+01
+ [solver] Start DLSODA...x_start =  0.161743926E+01 - x_end =  0.164410792E+01
+ [output] Saving info at x=  0.164410792E+01
+ [solver] Start DLSODA...x_start =  0.164410792E+01 - x_end =  0.167121629E+01
+ [output] Saving info at x=  0.167121629E+01
+ [solver] Start DLSODA...x_start =  0.167121629E+01 - x_end =  0.169877164E+01
+ [output] Saving info at x=  0.169877164E+01
+ [solver] Start DLSODA...x_start =  0.169877164E+01 - x_end =  0.172678132E+01
+ [output] Saving info at x=  0.172678132E+01
+ [solver] Start DLSODA...x_start =  0.172678132E+01 - x_end =  0.175525284E+01
+ [output] Saving info at x=  0.175525284E+01
+ [solver] Start DLSODA...x_start =  0.175525284E+01 - x_end =  0.178419379E+01
+ [output] Saving info at x=  0.178419379E+01
+ [solver] Start DLSODA...x_start =  0.178419379E+01 - x_end =  0.181361193E+01
+ [output] Saving info at x=  0.181361193E+01
+ [solver] Start DLSODA...x_start =  0.181361193E+01 - x_end =  0.184351513E+01
+ [output] Saving info at x=  0.184351513E+01
+ [solver] Start DLSODA...x_start =  0.184351513E+01 - x_end =  0.187391137E+01
+ [output] Saving info at x=  0.187391137E+01
+ [solver] Start DLSODA...x_start =  0.187391137E+01 - x_end =  0.190480879E+01
+ [output] Saving info at x=  0.190480879E+01
+ [solver] Start DLSODA...x_start =  0.190480879E+01 - x_end =  0.193621566E+01
+ [output] Saving info at x=  0.193621566E+01
+ [solver] Start DLSODA...x_start =  0.193621566E+01 - x_end =  0.196814037E+01
+ [output] Saving info at x=  0.196814037E+01
+ [solver] Start DLSODA...x_start =  0.196814037E+01 - x_end =  0.200059146E+01
+ [output] Saving info at x=  0.200059146E+01
+ [solver] Start DLSODA...x_start =  0.200059146E+01 - x_end =  0.203357760E+01
+ [output] Saving info at x=  0.203357760E+01
+ [solver] Start DLSODA...x_start =  0.203357760E+01 - x_end =  0.206710764E+01
+ [output] Saving info at x=  0.206710764E+01
+ [solver] Start DLSODA...x_start =  0.206710764E+01 - x_end =  0.210119052E+01
+ [output] Saving info at x=  0.210119052E+01
+ [solver] Start DLSODA...x_start =  0.210119052E+01 - x_end =  0.213583536E+01
+ [output] Saving info at x=  0.213583536E+01
+ [solver] Start DLSODA...x_start =  0.213583536E+01 - x_end =  0.217105144E+01
+ [output] Saving info at x=  0.217105144E+01
+ [solver] Start DLSODA...x_start =  0.217105144E+01 - x_end =  0.220684817E+01
+ [output] Saving info at x=  0.220684817E+01
+ [solver] Start DLSODA...x_start =  0.220684817E+01 - x_end =  0.224323512E+01
+ [output] Saving info at x=  0.224323512E+01
+ [solver] Start DLSODA...x_start =  0.224323512E+01 - x_end =  0.228022202E+01
+ [output] Saving info at x=  0.228022202E+01
+ [solver] Start DLSODA...x_start =  0.228022202E+01 - x_end =  0.231781878E+01
+ [output] Saving info at x=  0.231781878E+01
+ [solver] Start DLSODA...x_start =  0.231781878E+01 - x_end =  0.235603543E+01
+ [output] Saving info at x=  0.235603543E+01
+ [solver] Start DLSODA...x_start =  0.235603543E+01 - x_end =  0.239488221E+01
+ [output] Saving info at x=  0.239488221E+01
+ [solver] Start DLSODA...x_start =  0.239488221E+01 - x_end =  0.243436950E+01
+ [output] Saving info at x=  0.243436950E+01
+ [solver] Start DLSODA...x_start =  0.243436950E+01 - x_end =  0.247450787E+01
+ [output] Saving info at x=  0.247450787E+01
+ [solver] Start DLSODA...x_start =  0.247450787E+01 - x_end =  0.251530805E+01
+ [output] Saving info at x=  0.251530805E+01
+ [solver] Start DLSODA...x_start =  0.251530805E+01 - x_end =  0.255678095E+01
+ [output] Saving info at x=  0.255678095E+01
+ [solver] Start DLSODA...x_start =  0.255678095E+01 - x_end =  0.259893766E+01
+ [output] Saving info at x=  0.259893766E+01
+ [solver] Start DLSODA...x_start =  0.259893766E+01 - x_end =  0.264178946E+01
+ [output] Saving info at x=  0.264178946E+01
+ [solver] Start DLSODA...x_start =  0.264178946E+01 - x_end =  0.268534781E+01
+ [output] Saving info at x=  0.268534781E+01
+ [solver] Start DLSODA...x_start =  0.268534781E+01 - x_end =  0.272962435E+01
+ [output] Saving info at x=  0.272962435E+01
+ [solver] Start DLSODA...x_start =  0.272962435E+01 - x_end =  0.277463094E+01
+ [output] Saving info at x=  0.277463094E+01
+ [solver] Start DLSODA...x_start =  0.277463094E+01 - x_end =  0.282037961E+01
+ [output] Saving info at x=  0.282037961E+01
+ [solver] Start DLSODA...x_start =  0.282037961E+01 - x_end =  0.286688258E+01
+ [output] Saving info at x=  0.286688258E+01
+ [solver] Start DLSODA...x_start =  0.286688258E+01 - x_end =  0.291415231E+01
+ [output] Saving info at x=  0.291415231E+01
+ [solver] Start DLSODA...x_start =  0.291415231E+01 - x_end =  0.296220144E+01
+ [output] Saving info at x=  0.296220144E+01
+ [solver] Start DLSODA...x_start =  0.296220144E+01 - x_end =  0.301104280E+01
+ [output] Saving info at x=  0.301104280E+01
+ [solver] Start DLSODA...x_start =  0.301104280E+01 - x_end =  0.306068947E+01
+ [output] Saving info at x=  0.306068947E+01
+ [solver] Start DLSODA...x_start =  0.306068947E+01 - x_end =  0.311115473E+01
+ [output] Saving info at x=  0.311115473E+01
+ [solver] Start DLSODA...x_start =  0.311115473E+01 - x_end =  0.316245206E+01
+ [output] Saving info at x=  0.316245206E+01
+ [solver] Start DLSODA...x_start =  0.316245206E+01 - x_end =  0.321459520E+01
+ [output] Saving info at x=  0.321459520E+01
+ [solver] Start DLSODA...x_start =  0.321459520E+01 - x_end =  0.326759808E+01
+ [output] Saving info at x=  0.326759808E+01
+ [solver] Start DLSODA...x_start =  0.326759808E+01 - x_end =  0.332147489E+01
+ [output] Saving info at x=  0.332147489E+01
+ [solver] Start DLSODA...x_start =  0.332147489E+01 - x_end =  0.337624003E+01
+ [output] Saving info at x=  0.337624003E+01
+ [solver] Start DLSODA...x_start =  0.337624003E+01 - x_end =  0.343190814E+01
+ [output] Saving info at x=  0.343190814E+01
+ [solver] Start DLSODA...x_start =  0.343190814E+01 - x_end =  0.348849412E+01
+ [output] Saving info at x=  0.348849412E+01
+ [solver] Start DLSODA...x_start =  0.348849412E+01 - x_end =  0.354601311E+01
+ [output] Saving info at x=  0.354601311E+01
+ [solver] Start DLSODA...x_start =  0.354601311E+01 - x_end =  0.360448047E+01
+ [output] Saving info at x=  0.360448047E+01
+ [solver] Start DLSODA...x_start =  0.360448047E+01 - x_end =  0.366391186E+01
+ [output] Saving info at x=  0.366391186E+01
+ [solver] Start DLSODA...x_start =  0.366391186E+01 - x_end =  0.372432317E+01
+ [output] Saving info at x=  0.372432317E+01
+ [solver] Start DLSODA...x_start =  0.372432317E+01 - x_end =  0.378573055E+01
+ [output] Saving info at x=  0.378573055E+01
+ [solver] Start DLSODA...x_start =  0.378573055E+01 - x_end =  0.384815043E+01
+ [output] Saving info at x=  0.384815043E+01
+ [solver] Start DLSODA...x_start =  0.384815043E+01 - x_end =  0.391159949E+01
+ [output] Saving info at x=  0.391159949E+01
+ [solver] Start DLSODA...x_start =  0.391159949E+01 - x_end =  0.397609472E+01
+ [output] Saving info at x=  0.397609472E+01
+ [solver] Start DLSODA...x_start =  0.397609472E+01 - x_end =  0.404165336E+01
+ [output] Saving info at x=  0.404165336E+01
+ [solver] Start DLSODA...x_start =  0.404165336E+01 - x_end =  0.410829294E+01
+ [output] Saving info at x=  0.410829294E+01
+ [solver] Start DLSODA...x_start =  0.410829294E+01 - x_end =  0.417603129E+01
+ [output] Saving info at x=  0.417603129E+01
+ [solver] Start DLSODA...x_start =  0.417603129E+01 - x_end =  0.424488652E+01
+ [output] Saving info at x=  0.424488652E+01
+ [solver] Start DLSODA...x_start =  0.424488652E+01 - x_end =  0.431487706E+01
+ [output] Saving info at x=  0.431487706E+01
+ [solver] Start DLSODA...x_start =  0.431487706E+01 - x_end =  0.438602160E+01
+ [output] Saving info at x=  0.438602160E+01
+ [solver] Start DLSODA...x_start =  0.438602160E+01 - x_end =  0.445833920E+01
+ [output] Saving info at x=  0.445833920E+01
+ [solver] Start DLSODA...x_start =  0.445833920E+01 - x_end =  0.453184918E+01
+ [output] Saving info at x=  0.453184918E+01
+ [solver] Start DLSODA...x_start =  0.453184918E+01 - x_end =  0.460657121E+01
+ [output] Saving info at x=  0.460657121E+01
+ [solver] Start DLSODA...x_start =  0.460657121E+01 - x_end =  0.468252527E+01
+ [output] Saving info at x=  0.468252527E+01
+ [solver] Start DLSODA...x_start =  0.468252527E+01 - x_end =  0.475973167E+01
+ [output] Saving info at x=  0.475973167E+01
+ [solver] Start DLSODA...x_start =  0.475973167E+01 - x_end =  0.483821107E+01
+ [output] Saving info at x=  0.483821107E+01
+ [solver] Start DLSODA...x_start =  0.483821107E+01 - x_end =  0.491798446E+01
+ [output] Saving info at x=  0.491798446E+01
+ [solver] Start DLSODA...x_start =  0.491798446E+01 - x_end =  0.499907316E+01
+ [output] Saving info at x=  0.499907316E+01
+ [solver] Start DLSODA...x_start =  0.499907316E+01 - x_end =  0.508149887E+01
+ [output] Saving info at x=  0.508149887E+01
+ [solver] Start DLSODA...x_start =  0.508149887E+01 - x_end =  0.516528363E+01
+ [output] Saving info at x=  0.516528363E+01
+ [solver] Start DLSODA...x_start =  0.516528363E+01 - x_end =  0.525044985E+01
+ [output] Saving info at x=  0.525044985E+01
+ [solver] Start DLSODA...x_start =  0.525044985E+01 - x_end =  0.533702031E+01
+ [output] Saving info at x=  0.533702031E+01
+ [solver] Start DLSODA...x_start =  0.533702031E+01 - x_end =  0.542501816E+01
+ [output] Saving info at x=  0.542501816E+01
+ [solver] Start DLSODA...x_start =  0.542501816E+01 - x_end =  0.551446694E+01
+ [output] Saving info at x=  0.551446694E+01
+ [solver] Start DLSODA...x_start =  0.551446694E+01 - x_end =  0.560539056E+01
+ [output] Saving info at x=  0.560539056E+01
+ [solver] Start DLSODA...x_start =  0.560539056E+01 - x_end =  0.569781336E+01
+ [output] Saving info at x=  0.569781336E+01
+ [solver] Start DLSODA...x_start =  0.569781336E+01 - x_end =  0.579176003E+01
+ [output] Saving info at x=  0.579176003E+01
+ [solver] Start DLSODA...x_start =  0.579176003E+01 - x_end =  0.588725572E+01
+ [output] Saving info at x=  0.588725572E+01
+ [solver] Start DLSODA...x_start =  0.588725572E+01 - x_end =  0.598432596E+01
+ [output] Saving info at x=  0.598432596E+01
+ [solver] Start DLSODA...x_start =  0.598432596E+01 - x_end =  0.608299672E+01
+ [output] Saving info at x=  0.608299672E+01
+ [solver] Start DLSODA...x_start =  0.608299672E+01 - x_end =  0.618329437E+01
+ [output] Saving info at x=  0.618329437E+01
+ [solver] Start DLSODA...x_start =  0.618329437E+01 - x_end =  0.628524576E+01
+ [output] Saving info at x=  0.628524576E+01
+ [solver] Start DLSODA...x_start =  0.628524576E+01 - x_end =  0.638887814E+01
+ [output] Saving info at x=  0.638887814E+01
+ [solver] Start DLSODA...x_start =  0.638887814E+01 - x_end =  0.649421923E+01
+ [output] Saving info at x=  0.649421923E+01
+ [solver] Start DLSODA...x_start =  0.649421923E+01 - x_end =  0.660129720E+01
+ [output] Saving info at x=  0.660129720E+01
+ [solver] Start DLSODA...x_start =  0.660129720E+01 - x_end =  0.671014070E+01
+ [output] Saving info at x=  0.671014070E+01
+ [solver] Start DLSODA...x_start =  0.671014070E+01 - x_end =  0.682077883E+01
+ [output] Saving info at x=  0.682077883E+01
+ [solver] Start DLSODA...x_start =  0.682077883E+01 - x_end =  0.693324118E+01
+ [output] Saving info at x=  0.693324118E+01
+ [solver] Start DLSODA...x_start =  0.693324118E+01 - x_end =  0.704755784E+01
+ [output] Saving info at x=  0.704755784E+01
+ [solver] Start DLSODA...x_start =  0.704755784E+01 - x_end =  0.716375937E+01
+ [output] Saving info at x=  0.716375937E+01
+ [solver] Start DLSODA...x_start =  0.716375937E+01 - x_end =  0.728187686E+01
+ [output] Saving info at x=  0.728187686E+01
+ [solver] Start DLSODA...x_start =  0.728187686E+01 - x_end =  0.740194189E+01
+ [output] Saving info at x=  0.740194189E+01
+ [solver] Start DLSODA...x_start =  0.740194189E+01 - x_end =  0.752398657E+01
+ [output] Saving info at x=  0.752398657E+01
+ [solver] Start DLSODA...x_start =  0.752398657E+01 - x_end =  0.764804356E+01
+ [output] Saving info at x=  0.764804356E+01
+ [solver] Start DLSODA...x_start =  0.764804356E+01 - x_end =  0.777414602E+01
+ [output] Saving info at x=  0.777414602E+01
+ [solver] Start DLSODA...x_start =  0.777414602E+01 - x_end =  0.790232768E+01
+ [output] Saving info at x=  0.790232768E+01
+ [solver] Start DLSODA...x_start =  0.790232768E+01 - x_end =  0.803262283E+01
+ [output] Saving info at x=  0.803262283E+01
+ [solver] Start DLSODA...x_start =  0.803262283E+01 - x_end =  0.816506630E+01
+ [output] Saving info at x=  0.816506630E+01
+ [solver] Start DLSODA...x_start =  0.816506630E+01 - x_end =  0.829969354E+01
+ [output] Saving info at x=  0.829969354E+01
+ [solver] Start DLSODA...x_start =  0.829969354E+01 - x_end =  0.843654053E+01
+ [output] Saving info at x=  0.843654053E+01
+ [solver] Start DLSODA...x_start =  0.843654053E+01 - x_end =  0.857564389E+01
+ [output] Saving info at x=  0.857564389E+01
+ [solver] Start DLSODA...x_start =  0.857564389E+01 - x_end =  0.871704080E+01
+ [output] Saving info at x=  0.871704080E+01
+ [solver] Start DLSODA...x_start =  0.871704080E+01 - x_end =  0.886076910E+01
+ [output] Saving info at x=  0.886076910E+01
+ [solver] Start DLSODA...x_start =  0.886076910E+01 - x_end =  0.900686722E+01
+ [output] Saving info at x=  0.900686722E+01
+ [solver] Start DLSODA...x_start =  0.900686722E+01 - x_end =  0.915537423E+01
+ [output] Saving info at x=  0.915537423E+01
+ [solver] Start DLSODA...x_start =  0.915537423E+01 - x_end =  0.930632986E+01
+ [output] Saving info at x=  0.930632986E+01
+ [solver] Start DLSODA...x_start =  0.930632986E+01 - x_end =  0.945977447E+01
+ [output] Saving info at x=  0.945977447E+01
+ [solver] Start DLSODA...x_start =  0.945977447E+01 - x_end =  0.961574911E+01
+ [output] Saving info at x=  0.961574911E+01
+ [solver] Start DLSODA...x_start =  0.961574911E+01 - x_end =  0.977429549E+01
+ [output] Saving info at x=  0.977429549E+01
+ [solver] Start DLSODA...x_start =  0.977429549E+01 - x_end =  0.993545602E+01
+ [output] Saving info at x=  0.993545602E+01
+ [solver] Start DLSODA...x_start =  0.993545602E+01 - x_end =  0.100992738E+02
+ [output] Saving info at x=  0.100992738E+02
+ [solver] Start DLSODA...x_start =  0.100992738E+02 - x_end =  0.102657926E+02
+ [output] Saving info at x=  0.102657926E+02
+ [solver] Start DLSODA...x_start =  0.102657926E+02 - x_end =  0.104350570E+02
+ [output] Saving info at x=  0.104350570E+02
+ [solver] Start DLSODA...x_start =  0.104350570E+02 - x_end =  0.106071123E+02
+ [output] Saving info at x=  0.106071123E+02
+ [solver] Start DLSODA...x_start =  0.106071123E+02 - x_end =  0.107820045E+02
+ [output] Saving info at x=  0.107820045E+02
+ [solver] Start DLSODA...x_start =  0.107820045E+02 - x_end =  0.109597803E+02
+ [output] Saving info at x=  0.109597803E+02
+ [solver] Start DLSODA...x_start =  0.109597803E+02 - x_end =  0.111404874E+02
+ [output] Saving info at x=  0.111404874E+02
+ [solver] Start DLSODA...x_start =  0.111404874E+02 - x_end =  0.113241739E+02
+ [output] Saving info at x=  0.113241739E+02
+ [solver] Start DLSODA...x_start =  0.113241739E+02 - x_end =  0.115108892E+02
+ [output] Saving info at x=  0.115108892E+02
+ [solver] Start DLSODA...x_start =  0.115108892E+02 - x_end =  0.117006830E+02
+ [output] Saving info at x=  0.117006830E+02
+ [solver] Start DLSODA...x_start =  0.117006830E+02 - x_end =  0.118936062E+02
+ [output] Saving info at x=  0.118936062E+02
+ [solver] Start DLSODA...x_start =  0.118936062E+02 - x_end =  0.120897103E+02
+ [output] Saving info at x=  0.120897103E+02
+ [solver] Start DLSODA...x_start =  0.120897103E+02 - x_end =  0.122890478E+02
+ [output] Saving info at x=  0.122890478E+02
+ [solver] Start DLSODA...x_start =  0.122890478E+02 - x_end =  0.124916721E+02
+ [output] Saving info at x=  0.124916721E+02
+ [solver] Start DLSODA...x_start =  0.124916721E+02 - x_end =  0.126976373E+02
+ [output] Saving info at x=  0.126976373E+02
+ [solver] Start DLSODA...x_start =  0.126976373E+02 - x_end =  0.129069984E+02
+ [output] Saving info at x=  0.129069984E+02
+ [solver] Start DLSODA...x_start =  0.129069984E+02 - x_end =  0.131198116E+02
+ [output] Saving info at x=  0.131198116E+02
+ [solver] Start DLSODA...x_start =  0.131198116E+02 - x_end =  0.133361336E+02
+ [output] Saving info at x=  0.133361336E+02
+ [solver] Start DLSODA...x_start =  0.133361336E+02 - x_end =  0.135560225E+02
+ [output] Saving info at x=  0.135560225E+02
+ [solver] Start DLSODA...x_start =  0.135560225E+02 - x_end =  0.137795368E+02
+ [output] Saving info at x=  0.137795368E+02
+ [solver] Start DLSODA...x_start =  0.137795368E+02 - x_end =  0.140067366E+02
+ [output] Saving info at x=  0.140067366E+02
+ [solver] Start DLSODA...x_start =  0.140067366E+02 - x_end =  0.142376824E+02
+ [output] Saving info at x=  0.142376824E+02
+ [solver] Start DLSODA...x_start =  0.142376824E+02 - x_end =  0.144724362E+02
+ [output] Saving info at x=  0.144724362E+02
+ [solver] Start DLSODA...x_start =  0.144724362E+02 - x_end =  0.147110606E+02
+ [output] Saving info at x=  0.147110606E+02
+ [solver] Start DLSODA...x_start =  0.147110606E+02 - x_end =  0.149536195E+02
+ [output] Saving info at x=  0.149536195E+02
+ [solver] Start DLSODA...x_start =  0.149536195E+02 - x_end =  0.152001777E+02
+ [output] Saving info at x=  0.152001777E+02
+ [solver] Start DLSODA...x_start =  0.152001777E+02 - x_end =  0.154508012E+02
+ [output] Saving info at x=  0.154508012E+02
+ [solver] Start DLSODA...x_start =  0.154508012E+02 - x_end =  0.157055571E+02
+ [output] Saving info at x=  0.157055571E+02
+ [solver] Start DLSODA...x_start =  0.157055571E+02 - x_end =  0.159645135E+02
+ [output] Saving info at x=  0.159645135E+02
+ [solver] Start DLSODA...x_start =  0.159645135E+02 - x_end =  0.162277395E+02
+ [output] Saving info at x=  0.162277395E+02
+ [solver] Start DLSODA...x_start =  0.162277395E+02 - x_end =  0.164953057E+02
+ [output] Saving info at x=  0.164953057E+02
+ [solver] Start DLSODA...x_start =  0.164953057E+02 - x_end =  0.167672836E+02
+ [output] Saving info at x=  0.167672836E+02
+ [solver] Start DLSODA...x_start =  0.167672836E+02 - x_end =  0.170437459E+02
+ [output] Saving info at x=  0.170437459E+02
+ [solver] Start DLSODA...x_start =  0.170437459E+02 - x_end =  0.173247665E+02
+ [output] Saving info at x=  0.173247665E+02
+ [solver] Start DLSODA...x_start =  0.173247665E+02 - x_end =  0.176104207E+02
+ [output] Saving info at x=  0.176104207E+02
+ [solver] Start DLSODA...x_start =  0.176104207E+02 - x_end =  0.179007848E+02
+ [output] Saving info at x=  0.179007848E+02
+ [solver] Start DLSODA...x_start =  0.179007848E+02 - x_end =  0.181959365E+02
+ [output] Saving info at x=  0.181959365E+02
+ [solver] Start DLSODA...x_start =  0.181959365E+02 - x_end =  0.184959548E+02
+ [output] Saving info at x=  0.184959548E+02
+ [solver] Start DLSODA...x_start =  0.184959548E+02 - x_end =  0.188009197E+02
+ [output] Saving info at x=  0.188009197E+02
+ [solver] Start DLSODA...x_start =  0.188009197E+02 - x_end =  0.191109130E+02
+ [output] Saving info at x=  0.191109130E+02
+ [solver] Start DLSODA...x_start =  0.191109130E+02 - x_end =  0.194260175E+02
+ [output] Saving info at x=  0.194260175E+02
+ [solver] Start DLSODA...x_start =  0.194260175E+02 - x_end =  0.197463176E+02
+ [output] Saving info at x=  0.197463176E+02
+ [solver] Start DLSODA...x_start =  0.197463176E+02 - x_end =  0.200718988E+02
+ [output] Saving info at x=  0.200718988E+02
+ [solver] Start DLSODA...x_start =  0.200718988E+02 - x_end =  0.204028482E+02
+ [output] Saving info at x=  0.204028482E+02
+ [solver] Start DLSODA...x_start =  0.204028482E+02 - x_end =  0.207392544E+02
+ [output] Saving info at x=  0.207392544E+02
+ [solver] Start DLSODA...x_start =  0.207392544E+02 - x_end =  0.210812074E+02
+ [output] Saving info at x=  0.210812074E+02
+ [solver] Start DLSODA...x_start =  0.210812074E+02 - x_end =  0.214287985E+02
+ [output] Saving info at x=  0.214287985E+02
+ [solver] Start DLSODA...x_start =  0.214287985E+02 - x_end =  0.217821208E+02
+ [output] Saving info at x=  0.217821208E+02
+ [solver] Start DLSODA...x_start =  0.217821208E+02 - x_end =  0.221412687E+02
+ [output] Saving info at x=  0.221412687E+02
+ [solver] Start DLSODA...x_start =  0.221412687E+02 - x_end =  0.225063383E+02
+ [output] Saving info at x=  0.225063383E+02
+ [solver] Start DLSODA...x_start =  0.225063383E+02 - x_end =  0.228774273E+02
+ [output] Saving info at x=  0.228774273E+02
+ [solver] Start DLSODA...x_start =  0.228774273E+02 - x_end =  0.232546349E+02
+ [output] Saving info at x=  0.232546349E+02
+ [solver] Start DLSODA...x_start =  0.232546349E+02 - x_end =  0.236380619E+02
+ [output] Saving info at x=  0.236380619E+02
+ [solver] Start DLSODA...x_start =  0.236380619E+02 - x_end =  0.240278110E+02
+ [output] Saving info at x=  0.240278110E+02
+ [solver] Start DLSODA...x_start =  0.240278110E+02 - x_end =  0.244239863E+02
+ [output] Saving info at x=  0.244239863E+02
+ [solver] Start DLSODA...x_start =  0.244239863E+02 - x_end =  0.248266938E+02
+ [output] Saving info at x=  0.248266938E+02
+ [solver] Start DLSODA...x_start =  0.248266938E+02 - x_end =  0.252360413E+02
+ [output] Saving info at x=  0.252360413E+02
+ [solver] Start DLSODA...x_start =  0.252360413E+02 - x_end =  0.256521381E+02
+ [output] Saving info at x=  0.256521381E+02
+ [solver] Start DLSODA...x_start =  0.256521381E+02 - x_end =  0.260750957E+02
+ [output] Saving info at x=  0.260750957E+02
+ [solver] Start DLSODA...x_start =  0.260750957E+02 - x_end =  0.265050270E+02
+ [output] Saving info at x=  0.265050270E+02
+ [solver] Start DLSODA...x_start =  0.265050270E+02 - x_end =  0.269420472E+02
+ [output] Saving info at x=  0.269420472E+02
+ [solver] Start DLSODA...x_start =  0.269420472E+02 - x_end =  0.273862730E+02
+ [output] Saving info at x=  0.273862730E+02
+ [solver] Start DLSODA...x_start =  0.273862730E+02 - x_end =  0.278378233E+02
+ [output] Saving info at x=  0.278378233E+02
+ [solver] Start DLSODA...x_start =  0.278378233E+02 - x_end =  0.282968188E+02
+ [output] Saving info at x=  0.282968188E+02
+ [solver] Start DLSODA...x_start =  0.282968188E+02 - x_end =  0.287633824E+02
+ [output] Saving info at x=  0.287633824E+02
+ [solver] Start DLSODA...x_start =  0.287633824E+02 - x_end =  0.292376388E+02
+ [output] Saving info at x=  0.292376388E+02
+ [solver] Start DLSODA...x_start =  0.292376388E+02 - x_end =  0.297197147E+02
+ [output] Saving info at x=  0.297197147E+02
+ [solver] Start DLSODA...x_start =  0.297197147E+02 - x_end =  0.302097393E+02
+ [output] Saving info at x=  0.302097393E+02
+ [solver] Start DLSODA...x_start =  0.302097393E+02 - x_end =  0.307078435E+02
+ [output] Saving info at x=  0.307078435E+02
+ [solver] Start DLSODA...x_start =  0.307078435E+02 - x_end =  0.312141605E+02
+ [output] Saving info at x=  0.312141605E+02
+ [solver] Start DLSODA...x_start =  0.312141605E+02 - x_end =  0.317288258E+02
+ [output] Saving info at x=  0.317288258E+02
+ [solver] Start DLSODA...x_start =  0.317288258E+02 - x_end =  0.322519769E+02
+ [output] Saving info at x=  0.322519769E+02
+ [solver] Start DLSODA...x_start =  0.322519769E+02 - x_end =  0.327837539E+02
+ [output] Saving info at x=  0.327837539E+02
+ [solver] Start DLSODA...x_start =  0.327837539E+02 - x_end =  0.333242990E+02
+ [output] Saving info at x=  0.333242990E+02
+ [solver] Start DLSODA...x_start =  0.333242990E+02 - x_end =  0.338737566E+02
+ [output] Saving info at x=  0.338737566E+02
+ [solver] Start DLSODA...x_start =  0.338737566E+02 - x_end =  0.344322738E+02
+ [output] Saving info at x=  0.344322738E+02
+ [solver] Start DLSODA...x_start =  0.344322738E+02 - x_end =  0.350000000E+02
+ [output] Saving info at x=  0.350000000E+02
+ [solver] Solver ended. x_end =  0.350000000E+02 - w_end =  0.998224662E+00 - z_end =  0.139799602E+01
+ [output] Opening new file output/rho_final.dat in unit  9876
+ [output] Opening new file output/rho_final_mass.dat in unit  9876
+ [output] Opening new file output/resume.dat in unit  9876
+ Finished. closing log file.
+ Total errors:            0
+-- 30/07/2026 - h13:37:31

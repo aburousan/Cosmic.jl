@@ -31,6 +31,7 @@ include("modified_gravity.jl")
 include("bbn.jl")
 include("bbn_thermal.jl")
 include("neff.jl")
+include("neutrino_qke.jl")
 include("hyrec.jl")
 include("thermodynamics.jl")
 include("nuclear_deposition.jl")
@@ -83,6 +84,11 @@ export R_baryon, sound_speed, sound_horizon, r_drag, r_star, θ_star
 export bbn, bbn_mc, BBNSolution, Y_He_bbn, primordial_bbn, weak_rate, T_nu_over_T_gamma, NUCLIDES, detailed_balance
 export thermal_weak_correction, generate_thermal_cache
 export qed_pressure, qed_energy_density, F_ann, F_scat, neff, N_eff_sm, nu_temperatures, decoupling_history, scale_factor_at
+export FlavorDensityHistory, load_flavor_density_history, standard_qke_history,
+    validate_flavor_density_history, flavor_density_matrix, flavor_count,
+    qke_photon_temperature, qke_scale_variable, qke_scale_factor,
+    qke_neutrino_temperature,
+    qke_occupation, qke_neff, qke_distribution
 
 # Perturbations
 export PerturbationSolution, BackgroundCache, solve_perturbations, initial_conditions

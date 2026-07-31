@@ -64,7 +64,7 @@ Validated against CLASS's `sBBN_2025_primat.dat`.
 
 using OrdinaryDiffEq: ODEProblem, solve, TRBDF2, ReturnCode
 using ADTypes: AutoFiniteDiff
-using Interpolations: linear_interpolation, Line
+using Interpolations: linear_interpolation, cubic_spline_interpolation, Line
 using DelimitedFiles: readdlm
 using QuadGK: quadgk, gauss
 using SpecialFunctions: gamma
@@ -72,6 +72,21 @@ import Random
 import Statistics
 
 const _BBN_DIR = joinpath(@__DIR__, "..", "data", "bbn")
+
+# QuadGK constructs an n-point Gauss rule by solving an eigenproblem. Weak-rate
+# tabulation reuses the same orders hundreds of times with only affine endpoint
+# changes, so cache the canonical [-1,1] rule rather than rebuilding it inside
+# every temperature/thread.
+const _GAUSS_RULE_CACHE = Dict{Int,Tuple{Vector{Float64},Vector{Float64}}}()
+const _GAUSS_RULE_LOCK = ReentrantLock()
+function _gauss_rule(n::Int)
+    lock(_GAUSS_RULE_LOCK) do
+        get!(_GAUSS_RULE_CACHE, n) do
+            x, w = gauss(n)
+            (Float64.(x), Float64.(w))
+        end
+    end
+end
 
 # --- Nuclide bookkeeping -----------------------------------------------------
 #
@@ -295,8 +310,9 @@ const _Q_NP_MEV = 1.29333236          # m_n - m_p
 const _ME_MEV = 0.51099895
 const _q_np = _Q_NP_MEV / _ME_MEV     # 2.5310, in units of m_e
 
-"Fermi-Dirac occupation 1/(e^{x·E}+1), safe for either sign of E."
-@inline _fd(E, x) = (a = x * E; a > 300 ? 0.0 : a < -300 ? 1.0 : 1 / (exp(a) + 1))
+"Fermi-Dirac occupation 1/(e^{x·E−ξ}+1), safe for either sign of E."
+@inline _fd(E, x, ξ=0.0) =
+    (a = x * E - ξ; a > 300 ? 0.0 : a < -300 ? 1.0 : 1 / (exp(a) + 1))
 
 # --- Zero-temperature QED corrections to the weak rates ----------------------
 #
@@ -410,39 +426,22 @@ const _GA = 1.2756                                  # axial coupling, PDG
 const _DELTA_KAPPA = (2.79284734463 - 1) - (-1.91304273)   # κ_p - κ_n, weak magnetism
 const _MN_MEV = 939.56542052
 
-# Fermi-Dirac kernels with μ_ν = 0, from the Fokker-Planck expansion. Each is written
-# in whichever of the two algebraically identical forms does not overflow: for u ≥ 0 the
-# e^{2u}, e^{3u} in the naive expression blow past Float64 long before the function
-# itself becomes negligible, so numerator and denominator are divided through by e^{3u}.
-@inline function _fdk(k::Symbol, E, x)
-    u = x * E
-    u > 300 && return 0.0
-    if u >= 0
-        t = exp(-u)
-        d2 = (1 + t)^2
-        d3 = (1 + t)^3
-        k === :e2p0 && return E^2 * t / (1 + t)
-        k === :e3p0 && return E^3 * t / (1 + t)
-        k === :e2p1 && return E * (2t^2 + (2 - u) * t) / d2
-        k === :e3p1 && return E^2 * (3t^2 + (3 - u) * t) / d2
-        k === :e4p1 && return E^3 * (4t^2 + (4 - u) * t) / d2
-        k === :e2p2 && return ((u * (u - 4) + 2) * t + (4 - u * (u + 4)) * t^2 + 2t^3) / d3
-        k === :e3p2 && return E * ((12 - u * (u + 6)) * t^2 + (u * (u - 6) + 6) * t + 6t^3) / d3
-        k === :e4p2 && return E^2 * ((24 - u * (u + 8)) * t^2 + (u - 6) * (u - 2) * t + 12t^3) / d3
-    else
-        e = exp(u)
-        d2 = (e + 1)^2
-        d3 = (e + 1)^3
-        k === :e2p0 && return E^2 / (e + 1)
-        k === :e3p0 && return E^3 / (e + 1)
-        k === :e2p1 && return E * (2 + e * (2 - u)) / d2
-        k === :e3p1 && return E^2 * (3 + e * (3 - u)) / d2
-        k === :e4p1 && return E^3 * (4 + e * (4 - u)) / d2
-        k === :e2p2 && return ((u * (u - 4) + 2) * e^2 + (4 - u * (u + 4)) * e + 2) / d3
-        k === :e3p2 && return E * ((12 - u * (u + 6)) * e + e^2 * (u * (u - 6) + 6) + 6) / d3
-        k === :e4p2 && return E^2 * ((24 - u * (u + 8)) * e + e^2 * (u - 6) * (u - 2) + 12) / d3
-    end
-    0.0
+# Fokker-Planck kernels ∂ᴾ_E[Eᴺ fν(E)]. Writing them as derivatives of the
+# occupation, rather than as expanded exponentials, keeps the PRyMordial/Pitrou
+# expressions exact for arbitrary ξ and avoids overflow.
+@inline function _fdk(k::Symbol, E, x, ξ=0.0)
+    f = _fd(E, x, ξ)
+    fp = -x * f * (1 - f)
+    fpp = x^2 * f * (1 - f) * (1 - 2f)
+    k === :e2p0 && return E^2 * f
+    k === :e3p0 && return E^3 * f
+    k === :e2p1 && return 2E * f + E^2 * fp
+    k === :e3p1 && return 3E^2 * f + E^3 * fp
+    k === :e4p1 && return 4E^3 * f + E^4 * fp
+    k === :e2p2 && return 2f + 4E * fp + E^2 * fpp
+    k === :e3p2 && return 6E * f + 6E^2 * fp + E^3 * fpp
+    k === :e4p2 && return 12E^2 * f + 8E^3 * fp + E^4 * fpp
+    throw(ArgumentError("unknown finite-mass Fermi-Dirac kernel $k"))
 end
 
 "The three nucleon-structure couplings, for n→p (s=+1) or p→n (s=-1)."
@@ -457,29 +456,30 @@ end
 end
 
 "Finite-mass contribution to χ, Pitrou et al. §III.G (as implemented in PRyMordial)."
-function _chi_fm(en, pe, x, znu, s)
+function _chi_fm(en, pe, x, znu, s, ξ_ν=0.0)
     f1, f2, f3 = _fm_couplings(s)
     M = (_MP_MEV + _MN_MEV - s * _Q_NP_MEV) / (2 * _ME_MEV)
     Eν = en - s * _q_np
     F2 = _fd(-en, x)
+    ξs = s * ξ_ν
 
-    (f1 * _fdk(:e2p0, Eν, znu) * F2 * (pe^2 / (M * en))
+    (f1 * _fdk(:e2p0, Eν, znu, ξs) * F2 * (pe^2 / (M * en))
      +
-     f2 * _fdk(:e3p0, Eν, znu) * F2 * (-1 / M)
+     f2 * _fdk(:e3p0, Eν, znu, ξs) * F2 * (-1 / M)
      +
-     (f1 + f2 + f3) / (2 * x * M) * (_fdk(:e4p2, Eν, znu) * F2 + _fdk(:e2p2, Eν, znu) * F2 * pe^2)
+     (f1 + f2 + f3) / (2 * x * M) * (_fdk(:e4p2, Eν, znu, ξs) * F2 + _fdk(:e2p2, Eν, znu, ξs) * F2 * pe^2)
      +
-     (f1 + f2 + f3) / (2 * M) * (_fdk(:e4p1, Eν, znu) * F2 + _fdk(:e2p1, Eν, znu) * F2 * pe^2)
+     (f1 + f2 + f3) / (2 * M) * (_fdk(:e4p1, Eν, znu, ξs) * F2 + _fdk(:e2p1, Eν, znu, ξs) * F2 * pe^2)
      -
-     (f1 + f2) / (x * M) * (_fdk(:e3p1, Eν, znu) * F2 + _fdk(:e2p1, Eν, znu) * F2 * pe^2 / (-en))
+     (f1 + f2) / (x * M) * (_fdk(:e3p1, Eν, znu, ξs) * F2 + _fdk(:e2p1, Eν, znu, ξs) * F2 * pe^2 / (-en))
      -
-     f3 * 3 / (x * M) * _fdk(:e2p0, Eν, znu) * F2
+     f3 * 3 / (x * M) * _fdk(:e2p0, Eν, znu, ξs) * F2
      +
-     f3 / (3M) * _fdk(:e3p1, Eν, znu) * F2 * pe^2 / en
+     f3 / (3M) * _fdk(:e3p1, Eν, znu, ξs) * F2 * pe^2 / en
      +
-     f3 * 2 / (2 * x * 3 * M) * _fdk(:e3p2, Eν, znu) * F2 * pe^2 / en
+     f3 * 2 / (2 * x * 3 * M) * _fdk(:e3p2, Eν, znu, ξs) * F2 * pe^2 / en
      -
-     (f1 + f2 + f3) * 3 / (2x) * (1 - (_MN_MEV / _MP_MEV)^s) * (_fdk(:e2p1, Eν, znu) * F2))
+     (f1 + f2 + f3) * 3 / (2x) * (1 - (_MN_MEV / _MP_MEV)^s) * (_fdk(:e2p1, Eν, znu, ξs) * F2))
 end
 
 """
@@ -525,36 +525,38 @@ n→p (`direction = +1`) or p→n (`direction = -1`) conversion rate in 1/s.
 Temperatures in MeV. See the module docstring for why the χ(E) + χ(-E) form is the
 right way to write this.
 """
-function weak_rate(T_γ, T_ν, τ_n; direction=1, thermal=true)
+function weak_rate(T_γ, T_ν, τ_n; direction=1, thermal=true, ξ_ν=0.0)
     x = _ME_MEV / T_γ
     xν = _ME_MEV / T_ν
     s = direction
 
     χ(E) = begin
         Eν = E - s * _q_np
-        Eν^2 * _fd(Eν, xν) * _fd(-E, x)
+        Eν^2 * _fd(Eν, xν, s * ξ_ν) * _fd(-E, x)
     end
 
     # Gauss-Legendre on p ∈ [0, pmax]. The integrand is cut off by the Fermi factors
     # at a few × T/m_e, so pmax = 50 + 50·(T/m_e) is generous at every temperature
     # that matters and the rule converges to machine precision.
     pmax = 50 * (1 + max(T_γ, T_ν) / _ME_MEV)
-    p, w = gauss(200, 0.0, pmax)
+    nodes, weights = _gauss_rule(200)
+    half = pmax / 2
     acc = 0.0
-    @inbounds for i in eachindex(p)
-        E = sqrt(p[i]^2 + 1)
-        b = p[i] / E
+    @inbounds for i in eachindex(nodes)
+        p = half * (nodes[i] + 1)
+        E = sqrt(p^2 + 1)
+        b = p / E
         cp = _weak_correction(b, E, abs(s * _q_np - E), s, 1)
         cm = _weak_correction(b, E, abs(s * _q_np + E), s, -1)
         # Born + finite-nucleon-mass, each carrying the Coulomb and radiative factors.
-        acc += w[i] * p[i]^2 * (
-            (χ(E) + _chi_fm(E, p[i], x, xν, s)) * cp +
-            (χ(-E) + _chi_fm(-E, p[i], x, xν, s)) * cm)
+        acc += half * weights[i] * p^2 * (
+            (χ(E) + _chi_fm(E, p, x, xν, s, ξ_ν)) * cp +
+            (χ(-E) + _chi_fm(-E, p, x, xν, s, ξ_ν)) * cm)
     end
     # Finite-temperature (plasma) QED correction. It vanishes at T = 0, so it does not
     # enter F_n -- it changes the rates without changing the decay they are normalised
     # against, and therefore does not cancel.
-    thermal && (acc += _thermal_lookup(T_γ, s))
+    thermal && (acc += _thermal_lookup(T_γ, s, ξ_ν))
 
     acc / (τ_n * _FN)
 end
@@ -630,7 +632,8 @@ struct BBNSolution
 end
 
 """
-    bbn(; ω_b = 0.02242, ω_m = 0, N_eff = 3.044, τ_n = 878.4,
+    bbn(; ω_b = 0.02242, ω_m = 0, N_eff = nothing, τ_n = 878.4, ξ_ν = 0,
+        qke_history = nothing, qke_electron_flavor = 1,
         T9_weak = 100, T9_start = 10, T9_end = 0.005)
 
 Integrate the nuclear network and return the primordial abundances.
@@ -639,19 +642,48 @@ Integrate the nuclear network and return the primordial abundances.
 measured number the weak rates need, and Y_p is genuinely sensitive to it: ±0.5 s
 moves Y_p by about ±0.0002.
 
+`ξ_ν = μ_νe/T_νe` is the electron-neutrino degeneracy. It enters the Born,
+finite-nucleon-mass, and finite-temperature QED weak-rate terms with the
+neutrino/antineutrino signs fixed by detailed balance. `N_eff` is the total
+relativistic energy density, including any ξ-induced enhancement; `bbn(c)`
+computes that value from the cosmology automatically.
+
+`thermal_weak=false` is the PRIMAT-style diagnostic switch that omits only the
+finite-temperature Brown-Sawyer QED term. It defaults to `true`; the Born,
+zero-temperature radiative, Coulomb, and finite-nucleon-mass terms remain active.
+
+`qke_history` supplies a checked [`FlavorDensityHistory`](@ref).  Its exact
+energy density, scale-factor history, and electron-flavour occupation then
+replace the effective-temperature decoupling backend consistently.  Since the
+public FortEPiaNO history has zero lepton asymmetry, this mode rejects
+`ξ_ν != 0`.  If `N_eff` is omitted it is taken from the final QKE history;
+an explicit different value represents additional or missing free radiation.
+`qke_electron_flavor` identifies the weak-interaction electron flavour in a
+backend with arbitrary flavour ordering.
+
 The integration variable is ln T9 rather than time. Time never appears explicitly:
 a·T_ν is constant, so H = -dln T_ν/dt gives dt/dln T_γ = -(dln T_ν/dln T_γ)/H, and the
 whole thermal history follows from the entropy of the γ-e± plasma.
 `ω_m` supplies the present physical matter density to the Friedmann rate;
 `bbn(cosmology)` passes the cosmology's baryon-plus-CDM value automatically.
 """
-function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
+function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=nothing, τ_n=878.4, ξ_ν=0.0,
+    qke_history=nothing, qke_electron_flavor=1,
     ρ_extra=_zero_ρ, friedmann=_gr_friedmann,
+    thermal_weak=true,
     network=:full,          # :full (63 reactions, 12 nuclides) or :small (12, 8)
     rates=:primat,          # rate compilation: :primat (consistent chain) or :parthenope core
     T9_weak=100.0, T9_start=10.0, T9_end=0.005,
     reltol=1e-10, abstol=1e-25, return_sol=false,
     _net=nothing)           # a pre-sampled network, for bbn_mc
+
+    qke_history !== nothing && !iszero(ξ_ν) &&
+        throw(ArgumentError("qke_history assumes zero lepton asymmetry; ξ_ν must be zero"))
+    qke_history !== nothing &&
+        !(1 <= qke_electron_flavor <= flavor_count(qke_history)) &&
+        throw(BoundsError(1:flavor_count(qke_history), qke_electron_flavor))
+    qke_reference_neff = qke_history === nothing ? 3.044 : qke_neff(qke_history)
+    N_eff = N_eff === nothing ? qke_reference_neff : float(N_eff)
 
     net = _net === nothing ? _network(network; rates) : _net
     sym = [_symmetry(r.reactants) for r in net]
@@ -685,7 +717,8 @@ function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
     # what the decoupling solve is for. Using T_ν as a clock through the annihilation
     # quietly assumes the instantaneous limit one is trying to correct.
     function baryon_density(T_γ)                 # returns ρ_b in g/cm³
-        a = scale_factor_at(T_γ)
+        a = qke_history === nothing ?
+            scale_factor_at(T_γ) : qke_scale_factor(qke_history, T_γ)
         n_b0 * a^-3 * m_u
     end
 
@@ -726,20 +759,27 @@ function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
     #
     # Anything beyond the three Standard-Model neutrinos (dark radiation, a light relic) is
     # a genuine extra species, present throughout and not part of this history.
-    ΔN_extra = N_eff - 3.044
+    ΔN_extra = N_eff - qke_reference_neff
 
     function hubble(T_γ)                          # 1/s
-        Tνe, Tνμ = nu_temperatures(T_γ)
-        # ρ_ν from the actual per-flavour temperatures. ν_e runs hotter than ν_μ (it has a
-        # charged-current coupling as well as a neutral one), and that split is a result of
-        # the decoupling solve, not an input.
-        ρν = (7 / 8) * (π^2 / 15) * (Tνe^4 + 2 * Tνμ^4)
+        ρν, reference_flavours = if qke_history === nothing
+            Tνe, Tνμ = nu_temperatures(T_γ)
+            # ρ_ν from the actual per-flavour temperatures. ν_e runs hotter than ν_μ.
+            ((7 / 8) * (π^2 / 15) * (Tνe^4 + 2 * Tνμ^4), 3)
+        else
+            xqke = clamp(qke_scale_variable(qke_history, T_γ),
+                first(qke_history.x), last(qke_history.x))
+            Neff_at_T = qke_neff(qke_history, xqke)
+            ρ = Neff_at_T * (7 / 8) * (π^2 / 15) *
+                (4 / 11)^(4 / 3) * T_γ^4
+            (ρ, flavor_count(qke_history))
+        end
         # Extra relativistic species, in the convention of the sBBN tables: ΔN = 1 is
         # one full species mimicking a decoupled neutrino, so it carries the *average*
-        # per-flavour ν energy density -- (Tνe⁴ + 2Tνμ⁴)/3 -- not a third of one
+        # per-flavour ν energy density -- not a third of one
         # flavour. Getting this factor wrong leaves ΔN = 0 untouched and quietly
         # triples out of the Y_p response to dark radiation.
-        ρν += ΔN_extra * (7 / 8) * (π^2 / 15) * (Tνe^4 + 2 * Tνμ^4) / 3
+        ρν *= 1 + ΔN_extra / reference_flavours
         ρ_MeV4 = _ρ_γ(T_γ) + _ρ_epm(T_γ) + ρν + ρ_extra(T_γ)
         ρ_m_gcm3 = ω_m * ρ_c0_over_h2 / scale_factor_at(T_γ)^3
         friedmann(ρ_MeV4 * MeV4_to_gcm3 + ρ_m_gcm3)
@@ -755,7 +795,9 @@ function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
     # the time variable instead of the density.
     function dlna_dlnTγ(T_γ)
         δ = 1e-4
-        (log(scale_factor_at(T_γ * exp(δ))) - log(scale_factor_at(T_γ * exp(-δ)))) / (2δ)
+        a_at(T) = qke_history === nothing ?
+            scale_factor_at(T) : qke_scale_factor(qke_history, T)
+        (log(a_at(T_γ * exp(δ))) - log(a_at(T_γ * exp(-δ)))) / (2δ)
     end
 
     # Everything above depends only on temperature, and the right-hand side is
@@ -769,17 +811,31 @@ function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
     _dtdlnT = similar(lnT9s)
     _Γnp = similar(lnT9s)
     _Γpn = similar(lnT9s)
+    # A nonzero ξ has its own finite-temperature QED correction. Build that
+    # interpolation once before the threaded weak-rate loop so no worker can
+    # accidentally reuse the shipped ξ=0 table or race its construction.
+    thermal_weak && !iszero(ξ_ν) &&
+        _thermal_lookup(T_of_T9(T9_start), 1, ξ_ν)
     Threads.@threads for i in eachindex(lnT9s)
         Tγ = T_of_T9(exp(lnT9s[i]))
         # The n <-> p rates are charged-current: they see ν_e specifically, which runs
         # hotter than the flavour average, and hotter still than the instantaneous
         # entropy-conservation ratio. Feeding them anything colder than the solved T_νe
         # undercounts the n -> p conversions and leaves Y_p high.
-        Tνe, _ = nu_temperatures(Tγ)
         _ρb[i] = baryon_density(Tγ)
         _dtdlnT[i] = dlna_dlnTγ(Tγ) / hubble(Tγ)
-        _Γnp[i] = weak_rate(Tγ, Tνe, τ_n; direction=1)
-        _Γpn[i] = weak_rate(Tγ, Tνe, τ_n; direction=-1)
+        if qke_history === nothing
+            Tνe, _ = nu_temperatures(Tγ)
+            _Γnp[i] = weak_rate(Tγ, Tνe, τ_n;
+                direction=1, thermal=thermal_weak, ξ_ν)
+            _Γpn[i] = weak_rate(Tγ, Tνe, τ_n;
+                direction=-1, thermal=thermal_weak, ξ_ν)
+        else
+            _Γnp[i] = weak_rate(Tγ, qke_history, τ_n;
+                direction=1, thermal=thermal_weak, flavor=qke_electron_flavor)
+            _Γpn[i] = weak_rate(Tγ, qke_history, τ_n;
+                direction=-1, thermal=thermal_weak, flavor=qke_electron_flavor)
+        end
     end
     ρb_of = linear_interpolation(lnT9s, log.(_ρb); extrapolation_bc=Line())
     dt_of = linear_interpolation(lnT9s, _dtdlnT; extrapolation_bc=Line())
@@ -860,7 +916,14 @@ function bbn(; ω_b=0.02242, ω_m=0.0, N_eff=3.044, τ_n=878.4,
         du[2] = +flow
         nothing
     end
-    rnp0 = exp(-_Q_NP_MEV / T_of_T9(T9_weak))
+    Tγ_weak = T_of_T9(T9_weak)
+    ξ_term = if iszero(ξ_ν)
+        0.0
+    else
+        Tν_weak, _ = nu_temperatures(Tγ_weak)
+        ξ_ν * Tν_weak / Tγ_weak
+    end
+    rnp0 = exp(-_Q_NP_MEV / Tγ_weak - ξ_term)
     w0 = [rnp0 / (1 + rnp0), 1 / (1 + rnp0)]
     wsol = solve(ODEProblem(weak_rhs!, w0, (log(T9_weak), log(T9_start))),
         TRBDF2(autodiff=AutoFiniteDiff()); reltol, abstol=1e-14)
@@ -960,26 +1023,30 @@ _copy_bbn(b::BBNSolution) = BBNSolution(
     b.ω_b, b.N_eff, copy(b.Y), b.Y_p, b.Y_p_nucleon, b.DH, b.He3H, b.Li7H,
 )
 
+function _solve_standard_bbn_key(key; use_store=true)
+    if use_store
+        shipped = _stored_standard_bbn(key)
+        shipped !== nothing && return shipped
+    end
+    ħc_MeVcm = 197.3269804e-13
+    MeV4_to_gcm3 = 1.602176634e-6 / ħc_MeVcm^3 / (2.99792458e10)^2
+    function composition_extra(Tγ)
+        a = scale_factor_at(Tγ)
+        de = key[6] * a^(-3 * (1 + key[7] + key[8])) *
+            exp(-3 * key[8] * (1 - a))
+        1.87834e-29 * (key[5] / a^2 + de) / MeV4_to_gcm3
+    end
+    bbn(; ω_b=key[1], ω_m=key[2], N_eff=key[3], τ_n=key[4],
+        ρ_extra=composition_extra)
+end
+
 function _cached_standard_bbn(ω_b, ω_m, N_eff, τ_n;
     ω_k=0.0, ω_de=0.0, w0=-1.0, wa=0.0)
     key = (Float64(ω_b), Float64(ω_m), Float64(N_eff), Float64(τ_n),
         Float64(ω_k), Float64(ω_de), Float64(w0), Float64(wa))
     stored = lock(_STANDARD_BBN_CACHE_LOCK) do
         get!(_STANDARD_BBN_CACHE, key) do
-            # standard parameter points ship with their exact solved network
-            # result, so a fresh session never pays the full solve for them
-            shipped = _stored_standard_bbn(key)
-            shipped !== nothing && return shipped
-            ħc_MeVcm = 197.3269804e-13
-            MeV4_to_gcm3 = 1.602176634e-6 / ħc_MeVcm^3 / (2.99792458e10)^2
-            function composition_extra(Tγ)
-                a = scale_factor_at(Tγ)
-                de = key[6] * a^(-3 * (1 + key[7] + key[8])) *
-                    exp(-3 * key[8] * (1 - a))
-                1.87834e-29 * (key[5] / a^2 + de) / MeV4_to_gcm3
-            end
-            bbn(; ω_b=key[1], ω_m=key[2], N_eff=key[3], τ_n=key[4],
-                ρ_extra=composition_extra)
+            _solve_standard_bbn_key(key)
         end
     end
     # BBNSolution contains a mutable abundance vector. Never expose the canonical
@@ -995,6 +1062,19 @@ end
 
 "The full primordial abundance solution carried by `c`, or `nothing` for manual Yp."
 primordial_bbn(c::Cosmology) = c.bbn_result
+
+function _electron_neutrino_xi(c::Cosmology)
+    meta = get_species(c, MasslessNeutrinos)
+    meta === nothing && return 0.0
+    meta.ξ_νe !== nothing && return meta.ξ_νe
+    ξs = meta.ξ_slots
+    isempty(ξs) && return 0.0
+    ξ0 = first(ξs)
+    all(ξ -> isapprox(ξ, ξ0; rtol=0, atol=16eps(Float64)), ξs) && return ξ0
+    throw(ArgumentError(
+        "unequal ξ_ν mass-slot values do not determine the electron-flavour " *
+        "chemical potential needed by BBN; pass ξ_νe explicitly to cosmology()"))
+end
 
 """
     bbn(c::Cosmology; kwargs...)
@@ -1013,14 +1093,15 @@ Matter, curvature, and the cosmology's exact dark-energy `ρ(a)` are retained to
 their standard-ΛCDM contributions are tiny at BBN, but early-dark-energy models are
 therefore handed to the network without a radiation-era substitution.
 """
-function bbn(c::Cosmology; τ_n=878.4, kwargs...)
+function bbn(c::Cosmology; τ_n=878.4, ξ_νe=nothing, kwargs...)
     ω_b = Ω_b(c) * c.h^2
     ω_m = (Ω_b(c) + Ω_c(c)) * c.h^2
     # N_eff from the actual neutrino content, not from a remembered input.
     N_eff = _N_eff_of(c)
+    ξweak = ξ_νe === nothing ? _electron_neutrino_xi(c) : float(ξ_νe)
     if haskey(kwargs, :ρ_extra)
         # An explicit hook takes precedence, as documented by the low-level API.
-        return bbn(; ω_b, ω_m, N_eff, τ_n, kwargs...)
+        return bbn(; ω_b, ω_m, N_eff, τ_n, ξ_ν=ξweak, kwargs...)
     end
 
     # Preserve the cosmology's exact curvature and dark-energy history during
@@ -1033,12 +1114,15 @@ function bbn(c::Cosmology; τ_n=878.4, kwargs...)
     MeV4_to_gcm3 = erg_per_MeV / ħc_MeVcm^3 / c_cgs^2
     ρc0_gcm3 = c.h^2 * 1.87834e-29
     function composition_extra(Tγ)
-        a = scale_factor_at(Tγ)
+        qke = get(kwargs, :qke_history, nothing)
+        a = qke === nothing ? scale_factor_at(Tγ) : qke_scale_factor(qke, Tγ)
         rel = sum((ρ_over_ρc0(s, a) for s in c.species
-            if s isa Curvature || s isa AbstractDarkEnergy); init=0.0)
+            if s isa Curvature || s isa AbstractDarkEnergy ||
+               s isa DecayingCDM || s isa DecayRadiation); init=0.0)
         ρc0_gcm3 * rel / MeV4_to_gcm3
     end
-    bbn(; ω_b, ω_m, N_eff, τ_n, ρ_extra=composition_extra, kwargs...)
+    bbn(; ω_b, ω_m, N_eff, τ_n, ξ_ν=ξweak,
+        ρ_extra=composition_extra, kwargs...)
 end
 
 """
