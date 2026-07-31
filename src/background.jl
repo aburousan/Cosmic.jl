@@ -73,7 +73,7 @@ _Ω_or_zero(c, S) = (s = get_species(c, S); s === nothing ? 0.0 : s.Ω)
 Ω_c(c::Cosmology) = _Ω_or_zero(c, ColdDarkMatter)
 Ω_γ(c::Cosmology) = _Ω_or_zero(c, Photons)
 Ω_k(c::Cosmology) = _Ω_or_zero(c, Curvature)
-Ω_m(c::Cosmology) = Ω_b(c) + Ω_c(c)
+Ω_m(c::Cosmology) = ρ_matter(c, 1.0)
 
 "Dark-energy density today, whatever the flavour."
 Ω_de(c::Cosmology) = sum(Ω0(s) for s in c.species if s isa AbstractDarkEnergy; init=0.0)
@@ -87,8 +87,8 @@ function Ω_ν(c::Cosmology)
     tot
 end
 
-"Radiation density today (photons + anything still relativistic)."
-Ω_r(c::Cosmology) = Ω_γ(c) + _Ω_or_zero(c, MasslessNeutrinos)
+"Radiation density today (the relativistic share 3P of every species)."
+Ω_r(c::Cosmology) = ρ_radiation(c, 1.0)
 
 # --- Expansion rate ---------------------------------------------------------
 
@@ -293,20 +293,29 @@ conformal_time_today(c::Cosmology; kws...) = conformal_time(c, 1.0; kws...)
 
 Non-relativistic and relativistic energy densities, in units of ρ_c0.
 
-Massive neutrinos are counted in `ρ_radiation` at their *actual* density ρ_ν(a),
-not as a⁻³ matter. This is not a fudge: at equality (z ≈ 3400) the neutrino
-temperature is ~0.6 eV, so a 0.06 eV neutrino is still ultra-relativistic and
-genuinely behaves as radiation. Their mass only matters much later, and by then
-radiation is irrelevant. Sorting species into "matter" and "radiation" by *type*
-instead of by what they are actually doing at scale factor `a` is what makes the
-textbook Ω_m/Ω_r shortcut wrong.
+For a species with density ρ and pressure P, CLASS separates the relativistic
+share as 3P and the non-relativistic share as ρ−3P. This is exact in both limits
+and remains continuous through the massive-neutrino transition. Decaying CDM
+and its daughter radiation are assigned to their physical sectors.
 """
-ρ_matter(c::Cosmology, a) =
-    sum(ρ_over_ρc0(s, a) for s in c.species if s isa Baryons || s isa ColdDarkMatter; init=0.0)
+function ρ_matter(c::Cosmology, a)
+    total = sum(ρ_over_ρc0(s, a) for s in c.species
+        if s isa Baryons || s isa ColdDarkMatter || s isa DecayingCDM; init=0.0)
+    for s in c.species
+        s isa MassiveNeutrinos &&
+            (total += ρ_over_ρc0(s, a) - 3P_over_ρc0(s, a))
+    end
+    total
+end
 
-ρ_radiation(c::Cosmology, a) =
-    sum(ρ_over_ρc0(s, a) for s in c.species
-        if s isa Photons || s isa MasslessNeutrinos || s isa MassiveNeutrinos; init=0.0)
+function ρ_radiation(c::Cosmology, a)
+    total = sum(ρ_over_ρc0(s, a) for s in c.species
+        if s isa Photons || s isa MasslessNeutrinos || s isa DecayRadiation; init=0.0)
+    for s in c.species
+        s isa MassiveNeutrinos && (total += 3P_over_ρc0(s, a))
+    end
+    total
+end
 
 """
     z_equality(c)
@@ -393,7 +402,7 @@ end
 # in the dark-energy closure (fixed point — converges in a few passes because DE
 # barely feeds back on the early expansion). Γ in 1/Mpc; Ω_ini is the density
 # parameter the dcdm *would* have today with Γ = 0.
-function _solve_dcdm_history(Γ, Ω_ini, ρ_static, de_shape, h; x_ini=log(1e-9), npass=4)
+function _solve_dcdm_history(Γ, Ω_ini, ρ_static, de_shape, h; x_ini=log(1e-12), npass=4)
     H0 = Constants.H0_in_invMpc(h)
     Ω_static0 = ρ_static(1.0)
     Ω_DE = 1.0 - Ω_static0 - Ω_ini            # first guess: as if no decay
@@ -438,7 +447,11 @@ Neutrinos: `m_ν` is a vector of masses in eV. Species with mass are given the
 full phase-space treatment; the remainder of `N_eff` is carried by massless
 species. The default `m_ν = [0.06, 0.0, 0.0]` is the minimal normal hierarchy.
 Pass `m_ν = Float64[]` for the (unphysical, but common in older codes) case of
-three massless neutrinos.
+three massless neutrinos. Vectors shorter than three are zero-padded under the
+standard active-neutrino convention. Set `N_ν_slots` explicitly for a different
+number of slots. `ξ_ν` sets mass-slot degeneracies; `ξ_νe` separately sets the
+electron-flavour degeneracy entering BBN weak rates. When every slot has the
+same ξ, `ξ_νe` is inferred from it.
 
 Dark energy: `w0`/`wa` select CPL. For anything more exotic, pass `w_func`,
 an arbitrary function of `a`.
@@ -461,6 +474,9 @@ function cosmology(;
     N_eff=3.044,
     m_ν=[0.06, 0.0, 0.0],
     ξ_ν=nothing,
+    ξ_νe=nothing,
+    ν_dist=nothing,
+    N_ν_slots=nothing,
     m_wdm=nothing,
     Ω_wdm=0.0,
     Γ_dcdm=0.0,
@@ -491,31 +507,70 @@ function cosmology(;
     # carries N_eff/N_ν worth of density; slots with m > 0 get the phase-space
     # treatment, the rest stay massless.
     masses = collect(float.(m_ν))
-    N_slots = max(length(masses), 1)
-    share = N_eff / 3.0   # per-slot share, using the standard 3-neutrino norm
+    ξ_input = ξ_ν === nothing || ξ_ν isa Number ? Float64[] : collect(float.(ξ_ν))
+    N_slots = if N_ν_slots === nothing
+        max(3, length(masses), length(ξ_input))
+    else
+        n = Int(N_ν_slots)
+        n >= 1 || throw(ArgumentError("N_ν_slots must be a positive integer"))
+        n >= length(masses) || throw(ArgumentError(
+            "N_ν_slots=$n is smaller than the $(length(masses))-entry m_ν vector"))
+        n >= length(ξ_input) || throw(ArgumentError(
+            "N_ν_slots=$n is smaller than the $(length(ξ_input))-entry ξ_ν vector"))
+        n
+    end
+    append!(masses, zeros(N_slots - length(masses)))
+    share = N_eff / N_slots
 
-    # Optional per-slot degeneracy parameter ξ = μ/T (lepton asymmetry). A scalar
-    # applies to every slot; a vector is taken slot by slot; nothing means ξ = 0.
-    ξs = ξ_ν === nothing ? zeros(length(masses)) :
-         ξ_ν isa Number ? fill(float(ξ_ν), length(masses)) : collect(float.(ξ_ν))
+    # A scalar degeneracy applies to every slot. A vector is slot-by-slot and is
+    # zero-padded together with a short mass vector. Keeping the complete slot
+    # list is important: BBN may only identify it with an electron-neutrino
+    # chemical potential when flavour equilibration makes all entries equal.
+    ξs = ξ_ν === nothing ? zeros(N_slots) :
+         ξ_ν isa Number ? fill(float(ξ_ν), N_slots) : ξ_input
+    append!(ξs, zeros(N_slots - length(ξs)))
+
+    # Optional per-slot phase-space distributions, e.g. a solved neutrino
+    # quantum-kinetic spectrum from `qke_distribution`. A single distribution
+    # applies to every massive slot; a vector is slot-by-slot. A supplied
+    # distribution already carries the physical non-instantaneous decoupling
+    # enhancement in its own phase space (and is defined on the standard T_ν,0
+    # momentum grid), so that slot is built at N_eff_share = 1: its density is the
+    # spectrum's own prediction rather than a share of the N_eff input. Slots that
+    # end up massless ignore any distribution and stay pure radiation.
+    ν_dists = if ν_dist === nothing
+        fill(nothing, N_slots)
+    elseif ν_dist isa NeutrinoDistribution
+        fill(ν_dist, N_slots)
+    else
+        ds = collect(ν_dist)
+        length(ds) <= N_slots || throw(ArgumentError(
+            "ν_dist has $(length(ds)) entries but there are only $N_slots ν slots"))
+        vcat(Vector{Any}(ds), fill(nothing, N_slots - length(ds)))
+    end
 
     ν_species = Species[]
     N_massless_eff = 0.0
     for (i, m) in enumerate(masses)
-        ξ = i <= length(ξs) ? ξs[i] : 0.0
+        ξ = ξs[i]
+        di = ν_dists[i]
         if m > 0
-            push!(ν_species, massive_neutrino(m, Tcmb, h; N_eff_share=share, ξ))
+            if di === nothing
+                push!(ν_species, massive_neutrino(m, Tcmb, h; N_eff_share=share, ξ))
+            else
+                push!(ν_species, massive_neutrino(m, Tcmb, h; N_eff_share=1.0, dist=di))
+            end
         else
             # a degenerate massless slot carries extra radiation density
             N_massless_eff += share * degenerate_Neff_factor(ξ)
         end
     end
-    if isempty(masses)
-        N_massless_eff = N_eff
-    end
-    if N_massless_eff > 0
-        push!(ν_species, massless_neutrinos(N_massless_eff, Ωγ))
-    end
+    # Retain the slot degeneracies even when every slot is massive. The zero-
+    # density aggregate is harmless dynamically and gives BBN the metadata it
+    # needs to distinguish a common flavour-equilibrated ξ from an ambiguous
+    # unequal mass-basis vector.
+    push!(ν_species, massless_neutrinos(
+        N_massless_eff, Ωγ; ξ_slots=ξs, ξ_νe))
 
     baryons = Baryons(Ω_b)
     cdm = ColdDarkMatter(Ω_c)
@@ -589,20 +644,23 @@ function cosmology(;
 
     bbn_result = nothing
     if Yp === :bbn
-        if w_func === nothing && V_scf === nothing
+        hv = promote(float(h), float(Tcmb), 0.245, float(A_s),
+            float(n_s), float(k_pivot))
+        seed = Cosmology(hv..., nothing, Tuple(all_species))
+        N_eff_bbn = _N_eff_of(seed)
+        ξweak = _electron_neutrino_xi(seed)
+        if w_func === nothing && V_scf === nothing && iszero(ξweak) &&
+            Ω_dcdm_ini <= 0
             # Cacheable exact composition: matter, curvature and the complete
-            # CPL density history all enter the nuclear Friedmann rate.
-            # dcdm counts as matter during BBN: Γt(BBN) ≪ 1 for any Γ expressed
-            # in km/s/Mpc (1 km/s/Mpc ≈ 1e-19 s⁻¹, BBN at t ~ 10²-10³ s).
+            # CPL density history all enter the nuclear Friedmann rate. A
+            # decaying component instead follows its solved parent/daughter
+            # histories through bbn(seed), even when its decay is very slow.
             bbn_result = _cached_standard_bbn(Ω_b * h^2,
-                (Ω_b + Ω_c + Ω_dcdm_ini) * h^2,
-                N_eff, 878.4; ω_k=Ω_k * h^2, ω_de=Ω_DE * h^2, w0, wa)
+                (Ω_b + Ω_c) * h^2,
+                N_eff_bbn, 878.4; ω_k=Ω_k * h^2, ω_de=Ω_DE * h^2, w0, wa)
         else
-            # An arbitrary w(a) cannot be keyed by a finite parameter tuple.
-            # Build the composition first and let bbn(c) evaluate its exact ρ(a).
-            hv = promote(float(h), float(Tcmb), 0.245, float(A_s),
-                float(n_s), float(k_pivot))
-            seed = Cosmology(hv..., nothing, Tuple(all_species))
+            # Arbitrary w(a), scalar-field histories, and nonzero electron-
+            # neutrino chemical potentials are evaluated from the full model.
             bbn_result = bbn(seed)
         end
         Yp = bbn_result.Y_p

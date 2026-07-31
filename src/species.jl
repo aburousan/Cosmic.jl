@@ -90,15 +90,24 @@ The standard normalisation for `N` effectively-massless species is
 Ω_ν = N · (7/8) · (4/11)^(4/3) · Ω_γ, which [`massless_neutrinos`](@ref)
 applies for you.
 """
-struct MasslessNeutrinos{T<:Real} <: Species
+struct MasslessNeutrinos{T<:Real,X<:Tuple,E} <: Species
     Ω::T
+    ξ_slots::X
+    ξ_νe::E
 end
+MasslessNeutrinos(Ω::Real) = MasslessNeutrinos(Ω, (), nothing)
+MasslessNeutrinos(Ω::Real, ξ_slots::Tuple) =
+    MasslessNeutrinos(Ω, ξ_slots, nothing)
 ρ_over_ρc0(s::MasslessNeutrinos, a) = s.Ω / a^4
 w(::MasslessNeutrinos, a) = 1 // 3
 
 "Ω_ν for `N_eff` massless species given the photon density."
-function massless_neutrinos(N_eff, Ω_γ)
-    MasslessNeutrinos(N_eff * (7 / 8) * Constants.T_ν_over_T_γ^4 * Ω_γ)
+function massless_neutrinos(N_eff, Ω_γ; ξ_slots=(), ξ_νe=nothing)
+    MasslessNeutrinos(
+        N_eff * (7 / 8) * Constants.T_ν_over_T_γ^4 * Ω_γ,
+        Tuple(float.(ξ_slots)),
+        ξ_νe === nothing ? nothing : float(ξ_νe),
+    )
 end
 
 # --- Massive neutrinos ------------------------------------------------------
@@ -121,15 +130,30 @@ abstract type NeutrinoDistribution end
 """
     FermiDirac(ξ = 0)
 
-Fermi–Dirac distribution f₀(q) = 1/(e^{q−ξ} + 1) with degeneracy parameter
-ξ = μ/T (a chemical potential / lepton asymmetry). ξ = 0 is the standard case.
+Pair-averaged neutrino plus antineutrino Fermi–Dirac distribution
+
+    f₀(q) = 1/2 [1/(e^{q−ξ}+1) + 1/(e^{q+ξ}+1)]
+
+with degeneracy parameter ξ = μ/T. The antineutrino chemical potential is −μ,
+so this is the distribution whose energy integral obeys the standard exact
+even-in-ξ density enhancement. ξ = 0 is the standard case.
 """
 struct FermiDirac{T<:Real} <: NeutrinoDistribution
     ξ::T
 end
 FermiDirac() = FermiDirac(0.0)
-@inline nu_f0(d::FermiDirac, q) = 1 / (exp(q - d.ξ) + 1)
-@inline nu_dlnf0(d::FermiDirac, q) = -q / (1 + exp(-(q - d.ξ)))
+@inline function nu_f0(d::FermiDirac, q)
+    fp = 1 / (exp(q - d.ξ) + 1)
+    fm = 1 / (exp(q + d.ξ) + 1)
+    (fp + fm) / 2
+end
+@inline function nu_dlnf0(d::FermiDirac, q)
+    fp = 1 / (exp(q - d.ξ) + 1)
+    fm = 1 / (exp(q + d.ξ) + 1)
+    den = fp + fm
+    iszero(den) && return -q  # exact exponential-tail limit, avoids 0/0
+    -q * (fp * (1 - fp) + fm * (1 - fm)) / den
+end
 
 """
     TabulatedNu(f0, dlnf0)
@@ -152,8 +176,9 @@ The dimensionless energy integral
     F(y) = ∫₀^∞ dx  x² √(x² + y²) f₀(x),     y = m c² / kT_ν(a),
 
 which controls how a massive neutrino's density evolves. For Fermi–Dirac with
-ξ = 0, F(0) = 7π⁴/120 ≈ 5.6822 (relativistic, ρ ∝ a⁻⁴) and F(y→∞) → y·(3/2)ζ(3)·2
-(ρ → m·n, ρ ∝ a⁻³). Neutrinos are the one component that crosses between the two,
+ξ = 0, F(0) = 7π⁴/120 ≈ 5.6822 (relativistic, ρ ∝ a⁻⁴) and
+F(y→∞) → y·(3/2)ζ(3) (ρ → m·n, ρ ∝ a⁻³). Neutrinos are the one
+component that crosses between the two,
 so no ρ ∝ a⁻ⁿ power law describes them. A generic `dist` (degenerate or tabulated)
 just replaces f₀.
 """
