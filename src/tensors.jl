@@ -78,19 +78,18 @@ end
 
 function _tensor_massive_source(u, L, G, mν, a, H0)
     source = 0.0
-    for (s, m) in enumerate(mν)
+    for (jν, m) in enumerate(mν)
+        Gs = _nu_grid(G, jν)
         am = m.y1 * a
         integral = 0.0
         @inbounds for iq in 1:L.nq
-            q = G.q[iq]
+            q = Gs.q[iq]
             ε = sqrt(q^2 + am^2)
-            i0 = _itν(L, s, iq, 0)
+            i0 = _itν(L, jν, iq, 0)
             combo = u[i0] / 15 + 2u[i0+2] / 21 + u[i0+4] / 35
-            integral += G.w[iq] * G.f0[iq] * q^4 / ε * combo
+            integral += Gs.w[iq] * Gs.f0[iq] * q^4 / ε * combo
         end
-        # m.Ω_rel/F_massless is the same phase-space normalization used by the
-        # massive-neutrino background and scalar hierarchy.
-        norm = m.Ω_rel / F_massless / a^4
+        norm = m.Ω_rel / m.F_norm / a^4
         source += -4sqrt(6) * H0^2 * a^2 * norm * integral
     end
     source
@@ -146,12 +145,13 @@ function _tensor_rhs!(du, u, p, x)
     end
 
     # Exact momentum-dependent massive-neutrino tensor hierarchy.
-    for (s, m) in enumerate(mν), iq in 1:L.nq
-        q = G.q[iq]
+    for (jν, m) in enumerate(mν), iq in 1:L.nq
+        Gs = _nu_grid(G, jν)
+        q = Gs.q[iq]
         ε = sqrt(q^2 + (m.y1 * a)^2)
         qkε = k * q / ε
-        i0 = _itν(L, s, iq, 0)
-        dlnf = G.dlnf0[iq]
+        i0 = _itν(L, jν, iq, 0)
+        dlnf = Gs.dlnf0[iq]
         du[i0] = -qkε * u[i0+1] - sqrt(6) * hdot * dlnf / 4
         @inbounds for ℓ in 1:(L.lmax_m-1)
             du[i0+ℓ] = qkε / (2ℓ + 1) *
@@ -204,8 +204,9 @@ function _tensor_initial_conditions(c, bg, k, K, L, G, mν, x0)
     u[L.ihdot] = 2h2 / η
     u[L.iN] = sqrt(6) * h2
 
-    for (s, _) in enumerate(mν), iq in 1:L.nq
-        u[_itν(L, s, iq, 0)] = sqrt(6) * h2 * (-G.dlnf0[iq] / 4)
+    for (jν, _) in enumerate(mν), iq in 1:L.nq
+        Gs = _nu_grid(G, jν)
+        u[_itν(L, jν, iq, 0)] = sqrt(6) * h2 * (-Gs.dlnf0[iq] / 4)
     end
     u
 end
@@ -225,7 +226,7 @@ function solve_tensor_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
 
     K = spatial_curvature_K(c)
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
-    G = MassiveNuGrid(nq)
+    G = _massive_ν_grids(mν, nq)
     L = TensorLayout(lmax_γ, lmax_ν; lmax_m, nq, nmν=length(mν))
     k = float(k)
 

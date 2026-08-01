@@ -106,16 +106,17 @@ function _totals(p::PerturbationSolution, u, a)
 
     # Massive neutrinos contribute δρ, (ρ+P)θ, and their own ρ+P to the totals.
     if L.nmν > 0
-        G = MassiveNuGrid(L.nq)
         mν = Tuple(get_all_species(c, MassiveNeutrinos))
+        G = _massive_ν_grids(mν, L.nq)
         for (s, m) in enumerate(mν)
+            Gs = _nu_grid(G, s)
             am = m.y1 * a
-            norm = m.Ω_rel / F_massless / a^4
+            norm = m.Ω_rel / m.F_norm / a^4
             Iρ = Iδ = Iθ = IP = 0.0
             @inbounds for iq in 1:L.nq
-                q = G.q[iq]
+                q = Gs.q[iq]
                 ε = sqrt(q^2 + am^2)
-                wf = G.w[iq] * G.f0[iq]
+                wf = Gs.w[iq] * Gs.f0[iq]
                 Iρ += wf * q^2 * ε
                 Iδ += wf * q^2 * ε * u[_imν(L, s, iq, 0)]
                 Iθ += wf * q^3 * u[_imν(L, s, iq, 1)]

@@ -59,6 +59,15 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         @test z_equality(c) ≈ 3387 rtol = 5e-3     # Planck: 3387 ± 21
         @test conformal_time_today(c) ≈ 14160 rtol = 5e-3
 
+        # CLASS defines the radiation-like share of a massive species as 3P
+        # and the matter-like share as ρ-3P. For one 1 eV neutrino this gives
+        # the live CLASS 3.3 background equality value below; assigning all of
+        # ρν to radiation instead misses equality by about eight percent.
+        c1eV = cosmology(m_ν=[1.0, 0.0, 0.0], Yp=0.24568)
+        @test z_equality(c1eV) ≈ 3581.126945 rtol = 5e-6
+        @test Ω_m(c1eV) > Ω_b(c1eV) + Ω_c(c1eV)
+        @test Ω_r(c1eV) < Ω_γ(c1eV) + Ω_ν(c1eV)
+
         # Etherington distance-duality: D_L = (1+z)² D_A. Holds identically.
         z = 1.5
         @test luminosity_distance(c, z) ≈ angular_diameter_distance(c, z) * (1 + z)^2 rtol = 1e-10
@@ -719,8 +728,30 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         ξ = 0.5
         νξ = massive_neutrino(1e-6, Tcmb, h; ξ=ξ)
         ν0 = massive_neutrino(1e-6, Tcmb, h; ξ=0.0)
+        @test Cosmic.nu_dlnf0(FermiDirac(ξ), 1e3) == -1e3
+        @test νξ.F_norm / ν0.F_norm ≈ degenerate_Neff_factor(ξ) rtol = 1e-10
         @test Cosmic.ρ_over_ρc0(νξ, 1e-3) / Cosmic.ρ_over_ρc0(ν0, 1e-3) ≈
               degenerate_Neff_factor(ξ) rtol = 1e-5
+        # m_ν vectors shorter than three mean "remaining active slots are
+        # massless", as in CLASS/CAMB; longer vectors and an explicit slot
+        # count remain fully supported without changing total N_eff.
+        for masses in ([0.06], [0.06, 0.0], [0.06, 0.0, 0.0, 0.0])
+            cslots = cosmology(m_ν=masses, Yp=0.24568)
+            @test Cosmic._N_eff_of(cslots) ≈ 3.044 rtol = 1e-9
+        end
+        cone = cosmology(m_ν=[0.06], N_ν_slots=1, Yp=0.24568)
+        @test length(get_all_species(cone, MassiveNeutrinos)) == 1
+        @test Cosmic._N_eff_of(cone) ≈ 3.044 rtol = 1e-9
+        # Different distributions require different quadrature grids.
+        cmix = cosmology(m_ν=[0.05, 0.06, 0.07], ξ_ν=[0.0, 0.3, -0.5],
+            ξ_νe=0.0, Yp=0.24568)
+        mmix = Tuple(get_all_species(cmix, MassiveNeutrinos))
+        Gmix = Cosmic._massive_ν_grids(mmix, 12)
+        @test Gmix[1].f0 != Gmix[2].f0
+        @test Gmix[2].f0 != Gmix[3].f0
+        cambiguous = cosmology(m_ν=[0.05, 0.06, 0.07],
+            ξ_ν=[0.0, 0.3, -0.5], Yp=0.24568)
+        @test_throws ArgumentError Cosmic._electron_neutrino_xi(cambiguous)
         # a tabulated Fermi–Dirac reproduces the analytic one
         fd = FermiDirac(0.0)
         tab = TabulatedNu(q -> Cosmic.nu_f0(fd, q), q -> Cosmic.nu_dlnf0(fd, q))
@@ -752,6 +783,11 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
             Γ_dcdm=50.0, Ω_dcdm_ini=0.2607)
         d2 = Cosmic.get_species(c2, DecayingCDM)
         r2 = Cosmic.get_species(c2, DecayRadiation)
+        # The solved history extends through the BBN scale-factor range rather
+        # than clamping at a=1e-9; its parent approaches the stable a^-3 limit.
+        a_bbn = 1e-11
+        @test Cosmic.ρ_over_ρc0(d2, a_bbn) * a_bbn^3 ≈ 0.2607 rtol = 1e-5
+        @test Cosmic.ρ_over_ρc0(r2, a_bbn) > 0
         @test Cosmic.ρ_over_ρc0(d2, 1.0) < 0.14          # more than half decayed
         @test Cosmic.ρ_over_ρc0(r2, 1.0) > 0.05          # products present
         @test sum(Cosmic.ρ_over_ρc0(s, 1.0) for s in c2.species) ≈ 1 rtol = 1e-6
@@ -1031,6 +1067,21 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         # Large scales are untouched -- neutrinos free-stream out of small scales
         # only, so P(k) at k ≪ k_fs must agree with CAMB tightly.
         @test power(P, 1e-3) > 0
+
+        # Unequal ξ values must use genuinely distinct phase-space grids in both
+        # scalar and tensor hierarchies. The short evolution is a regression for
+        # both the old shared-first-grid bug and the tensor species-index/curvature
+        # function name collision.
+        cmix = cosmology(m_ν=[0.05, 0.06, 0.07], ξ_ν=[0.0, 0.3, -0.5],
+            ξ_νe=0.0, Yp=0.24568)
+        rmix = recombination(cmix)
+        bgmix = BackgroundCache(cmix, rmix)
+        pmix = solve_perturbations(cmix, bgmix, 0.1;
+            nq=10, lmax_m=6, lmax_γ=10, lmax_ν=12, a_end=0.01)
+        tmix = solve_tensor_perturbations(cmix, bgmix, 0.1;
+            nq=10, lmax_m=6, lmax_γ=8, lmax_ν=10, a_end=0.01)
+        @test all(isfinite, pmix.sol(log(0.01)))
+        @test all(isfinite, tmix.sol(log(0.01)))
     end
 
     @testset "gauges" begin
@@ -1284,7 +1335,7 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         bg = Cosmic._halofit_background(c, 0.0)   # threw a FieldError before
         # Σm_ν = 0.06 eV ⇒ Ω_ν h² = 0.06/93.14, so f_ν = Ω_ν/(Ω_m+Ω_ν) ≈ 4.5e-3
         Ω_ν = (0.06 / 93.14) / c.h^2
-        @test bg.fν ≈ Ω_ν / (Ω_m(c) + Ω_ν) rtol = 0.02
+        @test bg.fν ≈ Ω_ν / Ω_m(c) rtol = 0.02
         @test 0.0 < bg.fν < 0.05
         # a massless model must give exactly zero
         c0 = cosmology(m_ν=Float64[], Yp=0.24568)
@@ -1321,98 +1372,6 @@ const FULL_TESTS = get(ENV, "COSMIC_TEST_FULL", "true") == "true"
         Ptl = matter_power_spectrum(cml, rml; z=0.0, kmin=1e-4, kmax=5.0, nk=60, total=true)
         @test Pcl.δm == Ptl.δm
     end
-end
-
-@testset "BBN" begin
-    # The neutrino temperature is not put in by hand: it comes from entropy
-    # conservation in the γ-e± plasma, and must reproduce (4/11)^(1/3) once the
-    # positrons are gone.
-    @test Cosmic.T_nu_over_T_gamma(10.0) ≈ 1.0 atol = 1e-4
-    @test Cosmic.T_nu_over_T_gamma(1e-3) ≈ (4 / 11)^(1 / 3) rtol = 1e-6
-
-    # The weak rates are normalised by the neutron lifetime, so as T → 0 the n→p
-    # rate must collapse onto free decay.
-    @test weak_rate(0.005, 0.005, 878.4; direction=1) ≈ 1 / 878.4 rtol = 1e-3
-    # and p→n must shut off entirely (no positrons, no neutrinos to capture)
-    @test weak_rate(0.005, 0.005, 878.4; direction=-1) < 1e-30
-
-    # Born phase-space factor: the literature value is 1.6360.
-    @test Cosmic._LAMBDA0 ≈ 1.6360 rtol = 1e-4
-
-    # The forward rates are measured cross-sections and cannot be derived -- but
-    # the *thermal averaging* that turned σ(E) into the tabulated N_A<σv> can be
-    # redone from scratch. Recompute the three deuterium-burning rates by direct
-    # Gamow integration of the published S-factor polynomials (Pisanti et al 2021,
-    # Appendix A -- the exact fits behind PArthENoPE 3.0, LUNA data included) and
-    # demand the tables reproduce them. This is the strongest check a measured
-    # rate admits: the physics layer (barrier penetration + Maxwell average) is
-    # verified, the data layer is pinned to its published source.
-    @testset "forward rates vs S-factors" begin
-        function NA_sigmav(S_MeVb, Z1Z2, μ_u, T9)
-            kT = 0.086173332621 * T9
-            bG = 0.9895339 * Z1Z2 * sqrt(μ_u)          # 2πη = bG/√E, E in MeV
-            I = quadgk(E -> S_MeVb(E) * exp(-bG / sqrt(E) - E / kT), 0.0, 40kT;
-                rtol=1e-8)[1]
-            6.02214076e23 * 1e-24 * 2.99792458e10 *
-                sqrt(8 / (π * μ_u * 931.49410242)) * kT^(-1.5) * I
-        end
-        S_dpγ(E) = (0.2121 + 5.975E + 5.463E^2 - 1.665E^3) * 1e-6
-        S_ddn(E) = 0.05225 + 0.3655E - 0.1799E^2 + 0.05832E^3 - 0.007393E^4
-        S_ddp(E) = 0.05520 + 0.2151E - 0.02555E^2
-        μ_dp = 2.01355321 * 1.00727647 / (2.01355321 + 1.00727647)
-        μ_dd = 2.01355321 / 2
-        r_dpγ = Cosmic._load_rate("d_p__He3_g")
-        r_ddn = Cosmic._load_rate("d_d__He3_n")
-        r_ddp = Cosmic._load_rate("d_d__t_p")
-        for T9 in (0.3, 0.5, 0.8, 1.0)
-            @test NA_sigmav(S_dpγ, 1.0, μ_dp, T9) ≈ r_dpγ(T9) rtol = 0.02
-            @test NA_sigmav(S_ddn, 1.0, μ_dd, T9) ≈ r_ddn(T9) rtol = 0.02
-            @test NA_sigmav(S_ddp, 1.0, μ_dd, T9) ≈ r_ddp(T9) rtol = 0.02
-        end
-    end
-
-    # Every stored reverse-rate coefficient set must agree with the one derived
-    # from masses and spins. α to 0.5% (the stored values carry 5 digits and
-    # slightly different mass tables), β exactly, γ to 0.15 (≈ 13 keV in Q).
-    for r in Cosmic._network(:full)
-        α, β, γ = Cosmic.detailed_balance(r.reactants, r.products)
-        @test isapprox(α, r.α; rtol=5e-3)
-        @test β == r.β
-        @test isapprox(γ, r.γ; atol=0.15)
-    end
-    # Charge and baryon number balance in every reaction (γ carries neither).
-    for r in Cosmic._network(:full)
-        @test sum(Cosmic.NUC_A[i] for i in r.reactants) ==
-              sum(Cosmic.NUC_A[i] for i in r.products)
-        @test sum(Cosmic.NUC_Z[i] for i in r.reactants) ==
-              sum(Cosmic.NUC_Z[i] for i in r.products)
-    end
-
-    b = bbn(ω_b=0.02242, N_eff=3.044)
-    # baryon number: conserved by construction, so this measures stiff-solver
-    # drift, which is hardware dependent (2.7e-8 observed on GitHub runners
-    # where 1e-10 is typical locally)
-    @test sum(Cosmic.NUC_A .* b.Y) ≈ 1.0 rtol = 1e-7
-    # References must match the rate compilation they test. The default chain is
-    # PRIMAT throughout, so the references are PRIMAT's: CLASS's sBBN_2025_primat.dat
-    # for Y_p (0.245683 at ω_b = 0.02242, τ_n = 878.4) and PRyMordial run on these
-    # exact inputs with the same compilation (D/H = 2.4368e-5, Li7/H = 5.551e-10).
-    @test b.Y_p ≈ 0.245683 rtol = 1.5e-3
-    @test b.DH ≈ 2.4368e-5 rtol = 0.01
-    @test b.Li7H ≈ 5.551e-10 rtol = 0.05
-    # The PArthENoPE 3.0 core fits are the post-LUNA D/H reference (Pisanti et al
-    # 2021, eq. 16: 2.51e-5 at ω_b = 0.02242, rescaled to τ_n = 878.4). The ~2.6%
-    # D/H and ~13% Li7 differences between the two compilations are genuine spread
-    # in the fitted cross-sections, and both configurations must land on their own
-    # compilation's reference.
-    bp = bbn(ω_b=0.02242, N_eff=3.044, rates=:parthenope)
-    @test bp.DH ≈ 2.509e-5 rtol = 0.01
-    # Y_p rises with N_eff (faster expansion, earlier freeze-out, more neutrons)
-    @test bbn(ω_b=0.02242, N_eff=4.044).Y_p > b.Y_p
-
-    # cosmology(Yp = :bbn) must close the loop: helium consistent with its own ω_b
-    c = cosmology(Yp=:bbn)
-    @test 0.24 < c.Yp < 0.25
 end
 
 @testset "neutrino flavour-density matrices" begin
@@ -1524,3 +1483,152 @@ end
     @test mass_Neff ≈ qke_neff(standard) atol=6e-5
 end
 
+@testset "BBN" begin
+    # First-use initialization is shared safely by threaded rate/cache builders.
+    ntasks = min(Threads.nthreads(), 8)
+    dec_tasks = [Threads.@spawn nu_temperatures(0.5) for _ in 1:ntasks]
+    dec_temps = fetch.(dec_tasks)
+    @test all(t -> t == first(dec_temps), dec_temps)
+
+    # The neutrino temperature is not put in by hand: it comes from entropy
+    # conservation in the γ-e± plasma, and must reproduce (4/11)^(1/3) once the
+    # positrons are gone.
+    @test Cosmic.T_nu_over_T_gamma(10.0) ≈ 1.0 atol = 1e-4
+    @test Cosmic.T_nu_over_T_gamma(1e-3) ≈ (4 / 11)^(1 / 3) rtol = 1e-6
+
+    # The weak rates are normalised by the neutron lifetime, so as T → 0 the n→p
+    # rate must collapse onto free decay.
+    @test weak_rate(0.005, 0.005, 878.4; direction=1) ≈ 1 / 878.4 rtol = 1e-3
+    # and p→n must shut off entirely (no positrons, no neutrinos to capture)
+    @test weak_rate(0.005, 0.005, 878.4; direction=-1) < 1e-30
+
+    # With equal photon and neutrino temperatures, a chemical potential changes
+    # the detailed-balance ratio by exp(-ξ). Taking the ratio to ξ=0 isolates
+    # this exact factor from the separately truncated O(1/m_N) recoil series.
+    Tdb = 5.0
+    ξdb = 0.4
+    Γnp = weak_rate(Tdb, Tdb, 878.4; direction=1, thermal=false, ξ_ν=ξdb)
+    Γpn = weak_rate(Tdb, Tdb, 878.4; direction=-1, thermal=false, ξ_ν=ξdb)
+    Γnp0 = weak_rate(Tdb, Tdb, 878.4; direction=1, thermal=false)
+    Γpn0 = weak_rate(Tdb, Tdb, 878.4; direction=-1, thermal=false)
+    @test (Γpn / Γnp) / (Γpn0 / Γnp0) ≈ exp(-ξdb) rtol = 2e-4
+    # Direct low-order smoke gate for ξ propagation through every Brown-Sawyer
+    # thermal term. Production tables use n=256; n=16 is enough to catch a
+    # dropped keyword or accidental reuse of the ξ=0 integrand cheaply.
+    th0 = thermal_weak_correction(1.0, 0.9; direction=1, n=16)
+    thξ = thermal_weak_correction(1.0, 0.9; direction=1, n=16, ξ_ν=ξdb)
+    @test isfinite(thξ)
+    @test thξ != th0
+    if FULL_TESTS
+        # Current PRIMAT's deterministic dblquad unit-test point: Tγ=10^10 K,
+        # fixed Tν/Tγ=0.7138. These are raw Brown-Sawyer integrals before the
+        # common neutron-lifetime normalization, so they test the quadrature
+        # and every thermal sub-term directly.
+        Tth = 1e10 * 8.617333262e-11
+        Lth_np = Cosmic._thermal_weak_converged(
+            Tth, 0.7138Tth; direction=1, n=256)
+        Lth_pn = Cosmic._thermal_weak_converged(
+            Tth, 0.7138Tth; direction=-1, n=256)
+        @test Lth_np ≈ -1.6784941 rtol = 0.01
+        @test Lth_pn ≈ 0.48664922 rtol = 0.01
+
+        # The shipped table is uniform in ln(T). Its cubic interpolation must
+        # preserve the strongly curved real/virtual cancellation near 1 MeV.
+        Ttab = 0.9482413484124507
+        Tνtab, _ = nu_temperatures(Ttab)
+        direct_np = Cosmic._thermal_weak_converged(
+            Ttab, Tνtab; direction=1, n=256)
+        direct_pn = Cosmic._thermal_weak_converged(
+            Ttab, Tνtab; direction=-1, n=256)
+        @test Cosmic._thermal_lookup(Ttab, 1) ≈ direct_np rtol = 0.01
+        @test Cosmic._thermal_lookup(Ttab, -1) ≈ direct_pn rtol = 0.01
+    end
+
+    # Born phase-space factor: the literature value is 1.6360.
+    @test Cosmic._LAMBDA0 ≈ 1.6360 rtol = 1e-4
+
+    # The forward rates are measured cross-sections and cannot be derived -- but
+    # the *thermal averaging* that turned σ(E) into the tabulated N_A<σv> can be
+    # redone from scratch. Recompute the three deuterium-burning rates by direct
+    # Gamow integration of the published S-factor polynomials (Pisanti et al 2021,
+    # Appendix A -- the exact fits behind PArthENoPE 3.0, LUNA data included) and
+    # demand the tables reproduce them. This is the strongest check a measured
+    # rate admits: the physics layer (barrier penetration + Maxwell average) is
+    # verified, the data layer is pinned to its published source.
+    @testset "forward rates vs S-factors" begin
+        function NA_sigmav(S_MeVb, Z1Z2, μ_u, T9)
+            kT = 0.086173332621 * T9
+            bG = 0.9895339 * Z1Z2 * sqrt(μ_u)          # 2πη = bG/√E, E in MeV
+            I = quadgk(E -> S_MeVb(E) * exp(-bG / sqrt(E) - E / kT), 0.0, 40kT;
+                rtol=1e-8)[1]
+            6.02214076e23 * 1e-24 * 2.99792458e10 *
+                sqrt(8 / (π * μ_u * 931.49410242)) * kT^(-1.5) * I
+        end
+        S_dpγ(E) = (0.2121 + 5.975E + 5.463E^2 - 1.665E^3) * 1e-6
+        S_ddn(E) = 0.05225 + 0.3655E - 0.1799E^2 + 0.05832E^3 - 0.007393E^4
+        S_ddp(E) = 0.05520 + 0.2151E - 0.02555E^2
+        μ_dp = 2.01355321 * 1.00727647 / (2.01355321 + 1.00727647)
+        μ_dd = 2.01355321 / 2
+        r_dpγ = Cosmic._load_rate("d_p__He3_g")
+        r_ddn = Cosmic._load_rate("d_d__He3_n")
+        r_ddp = Cosmic._load_rate("d_d__t_p")
+        for T9 in (0.3, 0.5, 0.8, 1.0)
+            @test NA_sigmav(S_dpγ, 1.0, μ_dp, T9) ≈ r_dpγ(T9) rtol = 0.02
+            @test NA_sigmav(S_ddn, 1.0, μ_dd, T9) ≈ r_ddn(T9) rtol = 0.02
+            @test NA_sigmav(S_ddp, 1.0, μ_dd, T9) ≈ r_ddp(T9) rtol = 0.02
+        end
+    end
+
+    # Every stored reverse-rate coefficient set must agree with the one derived
+    # from masses and spins. α to 0.5% (the stored values carry 5 digits and
+    # slightly different mass tables), β exactly, γ to 0.15 (≈ 13 keV in Q).
+    for r in Cosmic._network(:full)
+        α, β, γ = Cosmic.detailed_balance(r.reactants, r.products)
+        @test isapprox(α, r.α; rtol=5e-3)
+        @test β == r.β
+        @test isapprox(γ, r.γ; atol=0.15)
+    end
+    # Charge and baryon number balance in every reaction (γ carries neither).
+    for r in Cosmic._network(:full)
+        @test sum(Cosmic.NUC_A[i] for i in r.reactants) ==
+              sum(Cosmic.NUC_A[i] for i in r.products)
+        @test sum(Cosmic.NUC_Z[i] for i in r.reactants) ==
+              sum(Cosmic.NUC_Z[i] for i in r.products)
+    end
+
+    # The fast lane reads the exact standard solution generated by
+    # derivations/bbn_standard_store.jl. Scheduled/manual full-physics CI below
+    # reruns the live networks, so the stored result cannot mask solver drift.
+    c = cosmology(Yp=:bbn)
+    b = primordial_bbn(c)
+    # baryon number: conserved by construction, so this measures stiff-solver
+    # drift, which is hardware dependent (2.7e-8 observed on GitHub runners
+    # where 1e-10 is typical locally)
+    @test sum(Cosmic.NUC_A .* b.Y) ≈ 1.0 rtol = 1e-7
+    # References must match the rate compilation they test. The default chain is
+    # PRIMAT throughout, so the references are PRIMAT's: CLASS's sBBN_2025_primat.dat
+    # for Y_p (0.245683 at ω_b = 0.02242, τ_n = 878.4) and PRyMordial run on these
+    # exact inputs with the same compilation (D/H = 2.4368e-5, Li7/H = 5.551e-10).
+    @test b.Y_p ≈ 0.245683 rtol = 1.5e-3
+    @test b.DH ≈ 2.4368e-5 rtol = 0.01
+    @test b.Li7H ≈ 5.551e-10 rtol = 0.05
+    # The PArthENoPE 3.0 core fits are the post-LUNA D/H reference (Pisanti et al
+    # 2021, eq. 16: 2.51e-5 at ω_b = 0.02242, rescaled to τ_n = 878.4). The ~2.6%
+    # D/H and ~13% Li7 differences between the two compilations are genuine spread
+    # in the fitted cross-sections, and both configurations must land on their own
+    # compilation's reference.
+    if FULL_TESTS
+        b_live = bbn(ω_b=0.02242, N_eff=3.044)
+        @test b_live.Y_p ≈ b.Y_p rtol = 5e-6
+        @test b_live.DH ≈ b.DH rtol = 5e-6
+        @test b_live.Li7H ≈ b.Li7H rtol = 5e-6
+
+        bp = bbn(ω_b=0.02242, N_eff=3.044, rates=:parthenope)
+        @test bp.DH ≈ 2.509e-5 rtol = 0.01
+        # Y_p rises with N_eff (faster expansion, earlier freeze-out, more neutrons)
+        @test bbn(ω_b=0.02242, N_eff=4.044).Y_p > b.Y_p
+    end
+
+    # cosmology(Yp = :bbn) must close the loop: helium consistent with its own ω_b
+    @test 0.24 < c.Yp < 0.25
+end

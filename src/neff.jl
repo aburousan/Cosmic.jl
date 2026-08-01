@@ -547,6 +547,7 @@ end
 const _DEC_E = Ref{Any}(nothing)
 const _DEC_M = Ref{Any}(nothing)
 const _DEC_A = Ref{Any}(nothing)
+const _DEC_LOCK = ReentrantLock()
 
 """
     nu_temperatures(T_γ)
@@ -562,10 +563,14 @@ end
 
 function _load_decoupling()
     if _DEC_E[] === nothing
-        a, b, c = decoupling_history()
-        _DEC_E[] = a
-        _DEC_M[] = b
-        _DEC_A[] = c
+        lock(_DEC_LOCK) do
+            if _DEC_E[] === nothing
+                a, b, c = decoupling_history()
+                _DEC_E[] = a
+                _DEC_M[] = b
+                _DEC_A[] = c
+            end
+        end
     end
     nothing
 end

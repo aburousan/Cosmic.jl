@@ -855,8 +855,8 @@ function perturbed_recombination(c::Cosmology, rec::RecombinationSolution,
         ρν = _Ω_or_zero(c, MasslessNeutrinos) / a^4
         ρb = Ω_b(c) / a^3
         ρc = Ω_c(c) / a^3
-        G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
         mν = Tuple(get_all_species(c, MassiveNeutrinos))
+        G = _massive_ν_grids(mν, L.nq == 0 ? 1 : L.nq)
         φ, ψ, φ̇ = _metric(u, L, k, spatial_curvature_K(c), a, ℋ_, H0,
             ργ, ρν, ρb, ρc, G, mν)
         (; a, ℋ_, δ_b=u[3], θ_b=u[4], δ_γ=u[L.iγ], ψ, φ̇)

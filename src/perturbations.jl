@@ -118,6 +118,11 @@ function MassiveNuGrid(nq::Int; qmax=25.0, dist::NeutrinoDistribution=FermiDirac
     MassiveNuGrid(collect(q), collect(w), f0, dlnf0)
 end
 
+@inline _nu_grid(G::MassiveNuGrid, _) = G
+@inline _nu_grid(G::Tuple, s) = G[s]
+@inline _nu_grid(G::AbstractVector{<:MassiveNuGrid}, s) = G[s]
+_massive_ν_grids(mν, nq) = Tuple(MassiveNuGrid(nq; dist=m.dist) for m in mν)
+
 "Background density integral ∫dq q²ε f₀ on the grid, in units where ρ ∝ this/a⁴."
 function _Iρ(G::MassiveNuGrid, am)
     s = 0.0
@@ -215,7 +220,12 @@ PerturbationSolution(c, rec, k, sol, lγ, lν, lm, nq, nmν) =
 _layout(p::PerturbationSolution) =
     Layout(p.lmax_γ, p.lmax_ν; lmax_m=p.lmax_m, nq=p.nq, nmν=p.nmν,
         has_dcdm=get_species(p.cosmo, DecayingCDM) !== nothing,
-        has_fld=_fld_species(p.cosmo) !== nothing, has_mg=p.mg !== nothing)
+        # Mirror the solve: a Horndeski scalar replaces the fluid's perturbations,
+        # so `solve_perturbations` drops the fld state slot when mg is attached
+        # (fld = nothing). The reconstruction must match, or every index past
+        # ifld (img, and the massive-ν tower) is off by one.
+        has_fld=_fld_species(p.cosmo) !== nothing && p.mg === nothing,
+        has_mg=p.mg !== nothing)
 
 # Decaying-DM parameters threaded through the RHS: the decay rate and the two
 # background ln-density histories (needed at every step for the source terms).
@@ -285,21 +295,22 @@ Einstein equations actually want: δρ, (ρ̄+P̄)θ, (ρ̄+P̄)σ, all in units
 normalised by the same ∫dq q²ε f₀ the *background* uses, so the two are consistent
 by construction rather than by coincidence.
 """
-@inline function _massive_ν_moments(u, L, G::MassiveNuGrid, k, a, mν)
+@inline function _massive_ν_moments(u, L, G, k, a, mν)
     δρ = 0.0
     ρPθ = 0.0
     ρPσ = 0.0
     for (s, m) in enumerate(mν)
+        Gs = _nu_grid(G, s)
         am = m.y1 * a
-        norm = m.Ω_rel / F_massless / a^4       # matches species.jl exactly
+        norm = m.Ω_rel / m.F_norm / a^4
         Iρ = 0.0
         Iδ = 0.0
         Iθ = 0.0
         Iσ = 0.0
         @inbounds for iq in 1:L.nq
-            q = G.q[iq]
+            q = Gs.q[iq]
             ε = sqrt(q^2 + am^2)
-            wf = G.w[iq] * G.f0[iq]
+            wf = Gs.w[iq] * Gs.f0[iq]
             Ψ0 = u[_imν(L, s, iq, 0)]
             Ψ1 = u[_imν(L, s, iq, 1)]
             Ψ2 = u[_imν(L, s, iq, 2)]
@@ -330,19 +341,20 @@ using norm ∝ a⁻⁴ (⇒ d ln norm/dx = -4), d(1/ε)/dx = -a²m²/ε³, and �
 weights q⁴/ε by Ψ₀ exactly as the shear weights it by Ψ₂ — the same kernel, the
 monopole rather than the quadrupole.
 """
-@inline function _massive_ν_mg_moments(u, du, L, G::MassiveNuGrid, k, a, mν)
+@inline function _massive_ν_mg_moments(u, du, L, G, k, a, mν)
     δP = 0.0
     dρPσ = 0.0
     for (s, m) in enumerate(mν)
+        Gs = _nu_grid(G, s)
         am = m.y1 * a
-        norm = m.Ω_rel / F_massless / a^4
+        norm = m.Ω_rel / m.F_norm / a^4
         Iδp = 0.0
         Iσ = 0.0
         IdσA = 0.0
         @inbounds for iq in 1:L.nq
-            q = G.q[iq]
+            q = Gs.q[iq]
             ε = sqrt(q^2 + am^2)
-            wf = G.w[iq] * G.f0[iq]
+            wf = Gs.w[iq] * Gs.f0[iq]
             Ψ0 = u[_imν(L, s, iq, 0)]
             Ψ2 = u[_imν(L, s, iq, 2)]
             dΨ2 = du[_imν(L, s, iq, 2)]
@@ -566,11 +578,12 @@ function _rhs!(du, u, p, x)
     # reason a fluid approximation fails here.
     if L.nmν > 0
         for (jν, m) in enumerate(mν)
+            Gs = _nu_grid(G, jν)
             am = m.y1 * a
             @inbounds for iq in 1:L.nq
-                q = G.q[iq]
+                q = Gs.q[iq]
                 ε = sqrt(q^2 + am^2)
-                dlnf0 = G.dlnf0[iq]
+                dlnf0 = Gs.dlnf0[iq]
                 qkε = q * k / ε
 
                 i0 = _imν(L, jν, iq, 0)
@@ -908,7 +921,7 @@ Derived in `docs/src/perturbation_equations.md`. With f_ν = ρ_ν/(ρ_γ+ρ_ν)
     σ_ν = (1/15) k² η² ψ
 """
 function initial_conditions(c::Cosmology, bg::BackgroundCache, k, L::Layout, x0,
-    G::MassiveNuGrid, mν; ic::Symbol=:adiabatic, fld_ppf::Bool=false)
+    G, mν; ic::Symbol=:adiabatic, fld_ppf::Bool=false)
     η = bg.η(x0)
     a = exp(x0)
 
@@ -986,11 +999,12 @@ function initial_conditions(c::Cosmology, bg::BackgroundCache, k, L::Layout, x0,
     # perturbation is the massless answer reshaped by the Fermi-Dirac weight:
     #   Ψ_ℓ = -(coefficient) · dln f₀/dln q
     for (s, m) in enumerate(mν)
+        Gs = _nu_grid(G, s)
         am = m.y1 * a
         for iq in 1:L.nq
-            q = G.q[iq]
+            q = Gs.q[iq]
             ε = sqrt(q^2 + am^2)
-            dlnf0 = G.dlnf0[iq]
+            dlnf0 = Gs.dlnf0[iq]
             u[_imν(L, s, iq, 0)] = -0.25 * δ_ν * dlnf0
             u[_imν(L, s, iq, 1)] = -(ε / (3 * q * k)) * θ_ν * dlnf0
             u[_imν(L, s, iq, 2)] = -0.5 *
@@ -1077,18 +1091,19 @@ function solve_perturbations(c::Cosmology, bg::BackgroundCache, k::Real;
     if mg !== nothing
         K == 0 || throw(ArgumentError(
             "Horndeski perturbations are implemented for flat space only"))
-        _fld_species(c) === nothing || throw(ArgumentError(
-            "attach either a dark-energy fluid or a Horndeski scalar, not both"))
     end
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
     nmν = length(mν)
-    # The free-streaming grid samples f₀; use the neutrinos' own distribution
-    # (degenerate or tabulated), which is exact when they share one f₀.
-    ν_dist = isempty(mν) ? FermiDirac() : first(mν).dist
-    G = MassiveNuGrid(nq; dist=ν_dist)
+    # Each species carries its own phase-space distribution. Sharing the first
+    # species' grid silently changes every later hierarchy when ξ or f₀ differs.
+    G = _massive_ν_grids(mν, nq)
     dcdm = _dcdm_params(c)
     de = _fld_species(c)
-    fld = if de === nothing
+    # With a Horndeski scalar attached, a background dark-energy fluid (e.g. a
+    # w0wa expansion history) sets H(a) only -- its perturbations are replaced by
+    # the scalar's, so the fluid/PPF sector is switched off here (the designer
+    # approach: fixed background, modified perturbations).
+    fld = if de === nothing || mg !== nothing
         nothing
     else
         ppf = if de_scheme === :ppf
@@ -1201,8 +1216,8 @@ function Ψ(p::PerturbationSolution, a)
     ρν = _Ω_or_zero(c, MasslessNeutrinos) / a^4
     ρb = Ω_b(c) / a^3
     ρc = Ω_c(c) / a^3
-    G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
+    G = _massive_ν_grids(mν, L.nq == 0 ? 1 : L.nq)
     # Reuse the metric routine so the massive-neutrino anisotropic stress is
     # included consistently rather than duplicated here.
     dc = _dcdm_params(c)
@@ -1294,8 +1309,8 @@ function δ_matter_total_comoving(p::PerturbationSolution, a)
     ρ_plus_P = ρc + ρb                       # w = 0 for cdm+baryon
 
     if L.nmν > 0
-        G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
         mν = Tuple(get_all_species(c, MassiveNeutrinos))
+        G = _massive_ν_grids(mν, L.nq == 0 ? 1 : L.nq)
         δρ_ν, _, _ = _massive_ν_moments(u, L, G, p.k, a, mν)
         ρ_ν = sum(ρ_over_ρc0(m, a) for m in mν)
         P_ν = sum(P_over_ρc0(m, a) for m in mν)

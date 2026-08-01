@@ -171,8 +171,8 @@ function _metric_at(c::Cosmology, p::PerturbationSolution, u, L, a)
     ρν = _Ω_or_zero(c, MasslessNeutrinos) / a^4
     ρb = Ω_b(c) / a^3
     ρc = Ω_c(c) / a^3
-    G = MassiveNuGrid(L.nq == 0 ? 1 : L.nq)
     mν = Tuple(get_all_species(c, MassiveNeutrinos))
+    G = _massive_ν_grids(mν, L.nq == 0 ? 1 : L.nq)
     dc = _dcdm_params(c)
     ρdc = dc === nothing ? 0.0 : exp(dc.lnρd(log(a)))
     ρdr = dc === nothing ? 0.0 : exp(dc.lnρr(log(a)))

@@ -109,14 +109,7 @@ to 1 identically for flat ΛCDM (the two backgrounds coincide) and for
 """
 function _hmcode_growth(c::Cosmology, z)
     a_target = scale_factor(z)
-    Ωm_a(a) = begin
-        s = 0.0
-        for sp in c.species
-            (sp isa Baryons || sp isa ColdDarkMatter || sp isa MassiveNeutrinos) &&
-                (s += ρ_over_ρc0(sp, a))
-        end
-        s / E(c, a)^2
-    end
+    Ωm_a(a) = ρ_matter(c, a) / E(c, a)^2
     E2m(a) = E(c, a)^2
     as, gs = _growth_traj(E2m, Ωm_a, a_target)
     g, G = gs[end], 0.0
@@ -132,10 +125,8 @@ function _hmcode_growth(c::Cosmology, z)
     if has_de && z < z_c
         # matter + radiation densities today (ν counted with matter, as in the
         # HMcode reference) and the flat ΛCDM-equivalent background.
-        Ωm0 = sum(ρ_over_ρc0(s, 1.0) for s in c.species
-                  if s isa Baryons || s isa ColdDarkMatter || s isa MassiveNeutrinos)
-        Ωr0 = sum(ρ_over_ρc0(s, 1.0) for s in c.species
-                  if s isa Photons || s isa MasslessNeutrinos)
+        Ωm0 = Ω_m(c)
+        Ωr0 = Ω_r(c)
         ΩΛ0 = 1 - Ωm0 - Ωr0
         E2L(a) = Ωr0 / a^4 + Ωm0 / a^3 + ΩΛ0
         ΩmL(a) = (Ωm0 / a^3) / E2L(a)
@@ -306,15 +297,10 @@ function hmcode_power(P::MatterPowerSpectrum; P_total::MatterPowerSpectrum=P)
     z = P.z
     a = scale_factor(z)
     E2 = E(c, a)^2
-    Ωm_z = sum(ρ_over_ρc0(s, a) for s in c.species
-               if (s isa Baryons || s isa ColdDarkMatter || s isa MassiveNeutrinos); init=0.0) / E2
-    # massive-ν rest-mass density today (ρ/ρ_c0 at a=1) — NOT `_Ω_or_zero`,
-    # which reads a `.Ω` field the MassiveNeutrinos struct does not carry
-    # (it stores Ω_rel, the would-be-massless density); that mismatch made
-    # hmcode_power throw for every massive-ν cosmology.
-    Ω_mν = sum(ρ_over_ρc0(s, 1.0) for s in c.species
-               if s isa MassiveNeutrinos; init=0.0)
-    Ωm0 = Ω_b(c) + Ω_c(c) + Ω_mν
+    Ωm_z = ρ_matter(c, a) / E2
+    Ω_mν = sum(ρ_over_ρc0(s, 1.0) - 3P_over_ρc0(s, 1.0)
+        for s in c.species if s isa MassiveNeutrinos; init=0.0)
+    Ωm0 = Ω_m(c)
     fν = Ωm0 > 0 ? Ω_mν / Ωm0 : 0.0
 
     gr = _hmcode_growth(c, z)

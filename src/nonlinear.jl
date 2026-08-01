@@ -81,16 +81,12 @@ end
 function _halofit_background(c::Cosmology, z)
     a = scale_factor(z)
     E2 = E(c, a)^2
-    ismatter(s) = s isa Baryons || s isa ColdDarkMatter || s isa MassiveNeutrinos
-    israd(s) = s isa Photons || s isa MasslessNeutrinos
-    Ω_m_z = sum(ρ_over_ρc0(s, a) for s in c.species if ismatter(s); init=0.0) / E2
-    Ω_r_z = sum(ρ_over_ρc0(s, a) for s in c.species if israd(s); init=0.0) / E2
+    Ω_m_z = ρ_matter(c, a) / E2
+    Ω_r_z = ρ_radiation(c, a) / E2
     Ω_v_z = 1 - Ω_m_z - Ω_r_z                       # CLASS convention (flat: = Ω_Λ(z))
-    # Massive neutrinos carry no fixed Ω field -- their density today follows
-    # from the phase-space integral -- and a model may hold several of them, so
-    # this sums Ω0 over the species rather than reading one off.
-    Ω_ν0 = sum(Ω0(s) for s in c.species if s isa MassiveNeutrinos; init=0.0)
-    Ω_m0 = Ω_m(c) + Ω_ν0
+    Ω_ν0 = sum(ρ_over_ρc0(s, 1.0) - 3P_over_ρc0(s, 1.0)
+        for s in c.species if s isa MassiveNeutrinos; init=0.0)
+    Ω_m0 = Ω_m(c)
     fν = Ω_m0 > 0 ? Ω_ν0 / Ω_m0 : 0.0
     w_de = -1.0
     for s in c.species
